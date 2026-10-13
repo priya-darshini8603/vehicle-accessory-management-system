@@ -1,4 +1,7 @@
 package org.example.service;
 
-public class VehicleService {
+import org.example.entity.Vehicle;
+
+public interface VehicleService {
+    Vehicle createVehicle(Vehicle vehicle);
 }
