@@ -1,15 +1,12 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
+import lombok.Data;
 import java.util.HashSet;
 import java.util.Set;
 
 @Data
 @Entity
-@AllArgsConstructor
-@NoArgsConstructor
 @Table(name = "vehicles")
 public class Vehicle {
 
