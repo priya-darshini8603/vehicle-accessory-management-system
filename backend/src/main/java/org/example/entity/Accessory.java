@@ -1,11 +1,16 @@
+
 package org.example.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.HashSet;
 import java.util.Set;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "accessories")
 public class Accessory {
@@ -19,7 +24,7 @@ public class Accessory {
     private Double price;
     private Integer stockQuantity;
 
-    // Inverse side of the Many-to-Many relationship
     @ManyToMany(mappedBy = "accessories")
+    @JsonIgnore
     private Set<Vehicle> vehicles = new HashSet<>();
 }

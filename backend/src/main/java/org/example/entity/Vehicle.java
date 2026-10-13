@@ -1,11 +1,14 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.HashSet;
 import java.util.Set;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "vehicles")
 public class Vehicle {
@@ -14,7 +17,6 @@ public class Vehicle {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Fulfills the "Vehicle number must be unique" requirement (VIN)
     @Column(name = "vehicle_number", unique = true, nullable = false)
     private String vehicleNumber;
 
@@ -22,12 +24,10 @@ public class Vehicle {
     private String model;
     private Integer year;
 
-    // Links the vehicle to a specific User (Customer)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
-    // The Many-To-Many Mapping table (vehicle_accessories)
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
             name = "vehicle_accessories",

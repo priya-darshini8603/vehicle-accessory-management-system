@@ -1,12 +1,15 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import org.example.enums.Role;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "users")
 public class User {
@@ -21,13 +24,13 @@ public class User {
     private String email;
 
     @Column(nullable = false)
-    private String password; // Added for Task 1 (Login)
+    private String password;
 
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role; // ADMIN or CUSTOMER
+    private Role role;
 
     @CreationTimestamp
     @Column(updatable = false)
