@@ -59,9 +59,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         try {
             http
-                    .csrf(csrf -> csrf.ignoringRequestMatchers(
-                            "/api/auth/register",
-                            "/api/auth/login"))
+                    .csrf(AbstractHttpConfigurer::disable)
                     .httpBasic(AbstractHttpConfigurer::disable)
                     .formLogin(AbstractHttpConfigurer::disable)
                     .sessionManagement(session -> session
