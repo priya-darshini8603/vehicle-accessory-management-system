@@ -24,7 +24,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     /**
-     * JWT filter that validates each incoming bearer token before the request continues.
+     * //JWT filter that validates each incoming bearer token before the request continues.
      */
     private final JwtAuthenticationFilter jwtFilter;
 
@@ -59,9 +59,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         try {
             http
-                    .csrf(csrf -> csrf.ignoringRequestMatchers(
-                            "/api/auth/register",
-                            "/api/auth/login"))
+                    .csrf(AbstractHttpConfigurer::disable)
                     .httpBasic(AbstractHttpConfigurer::disable)
                     .formLogin(AbstractHttpConfigurer::disable)
                     .sessionManagement(session -> session
