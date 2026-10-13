@@ -23,22 +23,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    /**
-     * JWT filter that validates each incoming bearer token before the request continues.
-     */
     private final JwtAuthenticationFilter jwtFilter;
 
-    /**
-     * Password hashing strategy used for user registration and authentication.
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
 
-    /**
-     * Builds the Spring AuthenticationManager used by the login flow.
-     */
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration configuration) {
@@ -46,48 +37,61 @@ public class SecurityConfig {
             return configuration.getAuthenticationManager();
         } catch (Exception exception) {
             throw new IllegalStateException(
-                    "Authentication manager could not be initialized", exception);
+                    "Authentication manager could not be initialized",
+                    exception
+            );
         }
     }
 
-    /**
-     * Configures stateless JWT security for the API layer.
-     * CSRF is ignored only for authentication endpoints because they are caller-driven,
-     * while the rest of the application still keeps the default protection.
-     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         try {
             http
-                    .csrf(csrf -> csrf.ignoringRequestMatchers(
-                            "/api/auth/register",
-                            "/api/auth/login"))
+                    // Disable CSRF for this stateless JWT API.
+                    .csrf(AbstractHttpConfigurer::disable)
+
                     .httpBasic(AbstractHttpConfigurer::disable)
                     .formLogin(AbstractHttpConfigurer::disable)
+
+                    // Do not create or use an HTTP session for authentication.
                     .sessionManagement(session -> session
                             .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers(HttpMethod.POST,
+                            // Public authentication endpoints.
+                            .requestMatchers(
+                                    HttpMethod.POST,
                                     "/api/auth/register",
-                                    "/api/auth/login")
-                            .permitAll()
+                                    "/api/auth/login"
+                            ).permitAll()
+
                             .requestMatchers("/error").permitAll()
 
-                            // Only administrators can manage system inventory.
+                            // Only administrators can manage inventory.
                             .requestMatchers("/api/admin/**").hasRole("ADMIN")
                             .requestMatchers("/api/accessories/**").hasRole("ADMIN")
 
-                            // Regular users must authenticate before accessing their section.
+                            // Authenticated users can access their own section.
                             .requestMatchers("/api/user/**").authenticated()
-                            .anyRequest().authenticated())
+
+                            // All other endpoints require authentication.
+                            .anyRequest().authenticated()
+                    )
+
                     .headers(Customizer.withDefaults())
+
                     .addFilterBefore(
                             jwtFilter,
-                            UsernamePasswordAuthenticationFilter.class);
+                            UsernamePasswordAuthenticationFilter.class
+                    );
 
             return http.build();
+
         } catch (Exception exception) {
-            throw new IllegalStateException("Security filter chain initialization failed", exception);
+            throw new IllegalStateException(
+                    "Security filter chain initialization failed",
+                    exception
+            );
         }
     }
 }
