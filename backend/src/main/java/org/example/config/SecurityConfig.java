@@ -3,6 +3,9 @@ package org.example.config;
 
 import lombok.RequiredArgsConstructor;
 import org.example.security.JwtAuthenticationFilter;
+import org.example.security.RestAccessDeniedHandler;
+import org.example.security.RestAuthenticationEntryPoint;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -29,6 +32,12 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtFilter;
 
     /**
+     * Produce the standard JSON error body for 401 and 403 responses.
+     */
+    private final RestAuthenticationEntryPoint authenticationEntryPoint;
+    private final RestAccessDeniedHandler accessDeniedHandler;
+
+    /**
      * Password hashing strategy used for user registration and authentication.
      */
     @Bean
@@ -51,9 +60,19 @@ public class SecurityConfig {
     }
 
     /**
+     * The JWT filter is a @Component, so Spring Boot would also register it as a plain servlet filter.
+     * It must only run inside the security filter chain.
+     */
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration() {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(jwtFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    /**
      * Configures stateless JWT security for the API layer.
-     * CSRF is ignored only for authentication endpoints because they are caller-driven,
-     * while the rest of the application still keeps the default protection.
+     * CSRF protection is disabled because the API uses bearer tokens, not cookies.
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) {
@@ -64,6 +83,9 @@ public class SecurityConfig {
                     .formLogin(AbstractHttpConfigurer::disable)
                     .sessionManagement(session -> session
                             .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .exceptionHandling(exceptions -> exceptions
+                            .authenticationEntryPoint(authenticationEntryPoint)
+                            .accessDeniedHandler(accessDeniedHandler))
                     .authorizeHttpRequests(auth -> auth
                             .requestMatchers(HttpMethod.POST,
                                     "/api/auth/register",
@@ -71,12 +93,13 @@ public class SecurityConfig {
                             .permitAll()
                             .requestMatchers("/error").permitAll()
 
-                            // Only administrators can manage system inventory.
+                            // Only administrators can manage vehicles, accessories, mappings and users.
                             .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                            .requestMatchers("/api/accessories/**").hasRole("ADMIN")
 
-                            // Regular users must authenticate before accessing their section.
-                            .requestMatchers("/api/user/**").authenticated()
+                            // Compatibility search is open to every signed-in role.
+                            .requestMatchers(HttpMethod.GET, "/api/compatibility/**", "/api/compatibility")
+                            .hasAnyRole("ADMIN", "CUSTOMER")
+
                             .anyRequest().authenticated())
                     .headers(Customizer.withDefaults())
                     .addFilterBefore(
