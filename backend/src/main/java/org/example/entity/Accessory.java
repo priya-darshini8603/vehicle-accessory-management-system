@@ -1,13 +1,18 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+
 import java.util.HashSet;
 import java.util.Set;
 
-@Data
+
 @Entity
 @Table(name = "accessories")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Accessory {
 
     @Id

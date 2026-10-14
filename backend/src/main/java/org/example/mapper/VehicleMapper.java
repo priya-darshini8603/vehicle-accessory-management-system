@@ -1,7 +1,10 @@
 package org.example.mapper;
 
 import org.example.dto.VehicleDto;
+import org.example.entity.Accessory;
 import org.example.entity.Vehicle;
+
+import java.util.stream.Collectors;
 
 public class VehicleMapper {
 
@@ -17,6 +20,14 @@ public class VehicleMapper {
         // Handle potential null user safely
         if (vehicle.getUser() != null) {
             dto.setUserId(vehicle.getUser().getId());
+        }
+        if (vehicle.getAccessories() != null) {
+            dto.setAccessoryIds(
+                    vehicle.getAccessories()
+                            .stream()
+                            .map(Accessory::getId)
+                            .collect(Collectors.toSet())
+            );
         }
 
         return dto;

@@ -1,13 +1,17 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+
 import java.util.HashSet;
 import java.util.Set;
 
-@Data
 @Entity
 @Table(name = "vehicles")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Vehicle {
 
     @Id
@@ -28,7 +32,12 @@ public class Vehicle {
     private User user;
 
     // The Many-To-Many Mapping table (vehicle_accessories)
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @ManyToMany(
+            fetch = FetchType.EAGER,
+            cascade = {
+                    CascadeType.PERSIST,
+                    CascadeType.MERGE
+            })
     @JoinTable(
             name = "vehicle_accessories",
             joinColumns = @JoinColumn(name = "vehicle_id"),
