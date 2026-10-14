@@ -1,20 +1,22 @@
 package org.example.service;
 
-import java.util.List;
-import org.example.entity.Accessory;
+import org.example.dto.AccessoryRequest;
+import org.example.dto.AccessoryResponse;
+import org.example.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 /**
  * Contract for catalog operations on accessory inventory records.
  */
 public interface AccessoryService {
 
-    Accessory addAccessory(Accessory accessory);
+    AccessoryResponse createAccessory(AccessoryRequest request);
 
-    List<Accessory> getAllAccessories();
+    PageResponse<AccessoryResponse> getAccessories(Pageable pageable);
 
-    Accessory getAccessoryById(Long id);
+    AccessoryResponse getAccessoryById(Long id);
 
-    Accessory updateAccessory(Long id, Accessory details);
+    AccessoryResponse updateAccessory(Long id, AccessoryRequest request);
 
     void deleteAccessory(Long id);
 }

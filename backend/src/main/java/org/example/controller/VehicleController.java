@@ -1,66 +1,87 @@
 package org.example.controller;
 
 import jakarta.validation.Valid;
-import lombok.AllArgsConstructor;
-import org.example.dto.VehicleDto;
+import lombok.RequiredArgsConstructor;
+import org.example.dto.AccessoryMappingRequest;
+import org.example.dto.PageResponse;
+import org.example.dto.VehicleRequest;
+import org.example.dto.VehicleResponse;
 import org.example.service.VehicleService;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.util.List;
+import java.net.URI;
 
 @RestController
-@AllArgsConstructor
-@RequestMapping("/api/vehicles")
+@RequestMapping("/api/admin/vehicles")
+@PreAuthorize("hasRole('ADMIN')")
+@RequiredArgsConstructor
 public class VehicleController {
 
     private final VehicleService vehicleService;
 
-    // ADMIN only: Create vehicle
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<VehicleDto> createVehicle(@Valid @RequestBody VehicleDto vehicleDto) {
-        VehicleDto savedVehicle = vehicleService.createVehicle(vehicleDto);
-        return new ResponseEntity<>(savedVehicle, HttpStatus.CREATED);
+    public ResponseEntity<VehicleResponse> createVehicle(@Valid @RequestBody VehicleRequest request) {
+        VehicleResponse created = vehicleService.createVehicle(request);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}").buildAndExpand(created.id()).toUri();
+        return ResponseEntity.created(location).body(created);
     }
 
-    // View all vehicles
+    // Supports ?page=0&size=20&sort=vehicleNumber,asc
     @GetMapping
-    public ResponseEntity<List<VehicleDto>> getAllVehicles() {
-        return ResponseEntity.ok(vehicleService.getAllVehicles());
+    public ResponseEntity<PageResponse<VehicleResponse>> getVehicles(
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        return ResponseEntity.ok(vehicleService.getVehicles(pageable));
     }
 
-    // View vehicle by ID
     @GetMapping("/{id}")
-    public ResponseEntity<VehicleDto> getVehicleById(@PathVariable Long id) {
+    public ResponseEntity<VehicleResponse> getVehicleById(@PathVariable Long id) {
         return ResponseEntity.ok(vehicleService.getVehicleById(id));
     }
 
-    // ADMIN only: Update vehicle
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<VehicleDto> updateVehicle(@PathVariable Long id, @Valid @RequestBody VehicleDto vehicleDto) {
-        VehicleDto updatedVehicle = vehicleService.updateVehicle(id, vehicleDto);
-        return ResponseEntity.ok(updatedVehicle);
+    public ResponseEntity<VehicleResponse> updateVehicle(
+            @PathVariable Long id, @Valid @RequestBody VehicleRequest request) {
+        return ResponseEntity.ok(vehicleService.updateVehicle(id, request));
     }
 
-    // ADMIN only: Delete vehicle
+    // Also removes the vehicle's accessory mappings; the accessories themselves are kept.
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> deleteVehicle(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteVehicle(@PathVariable Long id) {
         vehicleService.deleteVehicle(id);
-        return ResponseEntity.ok("Vehicle deleted successfully.");
+        return ResponseEntity.noContent().build();
     }
 
-    // ADMIN only: Assign accessory to vehicle
+    // --- Vehicle–accessory mappings ------------------------------------------------------
+
     @PostMapping("/{vehicleId}/accessories/{accessoryId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<VehicleDto> assignAccessoryToVehicle(
-            @PathVariable Long vehicleId,
-            @PathVariable Long accessoryId) {
-        VehicleDto updatedVehicle = vehicleService.assignAccessoryToVehicle(vehicleId, accessoryId);
-        return ResponseEntity.ok(updatedVehicle);
+    public ResponseEntity<VehicleResponse> addAccessory(
+            @PathVariable Long vehicleId, @PathVariable Long accessoryId) {
+        return ResponseEntity.ok(vehicleService.addAccessory(vehicleId, accessoryId));
+    }
+
+    @DeleteMapping("/{vehicleId}/accessories/{accessoryId}")
+    public ResponseEntity<VehicleResponse> removeAccessory(
+            @PathVariable Long vehicleId, @PathVariable Long accessoryId) {
+        return ResponseEntity.ok(vehicleService.removeAccessory(vehicleId, accessoryId));
+    }
+
+    // Replaces all mappings with the given ids; an empty list clears them.
+    @PutMapping("/{vehicleId}/accessories")
+    public ResponseEntity<VehicleResponse> replaceAccessories(
+            @PathVariable Long vehicleId, @Valid @RequestBody AccessoryMappingRequest request) {
+        return ResponseEntity.ok(vehicleService.replaceAccessories(vehicleId, request.accessoryIds()));
     }
 }

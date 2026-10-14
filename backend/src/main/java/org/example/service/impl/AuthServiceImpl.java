@@ -8,28 +8,23 @@ import org.example.dto.RegisterRequest;
 import org.example.dto.UserResponse;
 import org.example.entity.User;
 import org.example.enums.Role;
+import org.example.exception.DuplicateResourceException;
 import org.example.mapper.UserMapper;
 import org.example.repository.UserRepository;
 import org.example.service.AuthService;
-import org.example.util.JwtService;
-import org.springframework.http.HttpStatus;
+import org.example.security.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
-
-    /**
-     * Company email domain that grants administrative access to the platform.
-     */
-    private static final String ADMIN_EMAIL_DOMAIN = "mercedes-benz.com";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -43,18 +38,16 @@ public class AuthServiceImpl implements AuthService {
         String email = normalizeEmail(request.email());
 
         if (userRepository.existsByEmail(email)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Email is already registered");
+            throw new DuplicateResourceException("Email is already registered");
         }
 
         User user = new User();
         user.setFullName(request.fullName().trim());
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setPhoneNumber(request.phoneNumber());
-        user.setRole(email.substring(email.lastIndexOf('@') + 1)
-                .equals(ADMIN_EMAIL_DOMAIN) ? Role.ADMIN : Role.CUSTOMER);
+        user.setPhoneNumber(blankToNull(request.phoneNumber()));
+        // Self-registration never grants ADMIN; see AdminBootstrap and PUT /api/admin/users/{id}/role.
+        user.setRole(Role.CUSTOMER);
 
         return userMapper.toResponse(userRepository.save(user));
     }
@@ -71,9 +64,7 @@ public class AuthServiceImpl implements AuthService {
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED,
-                        "Invalid email or password"));
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         String token = jwtService.generateToken(userDetails);
         return new AuthResponse(
@@ -88,5 +79,9 @@ public class AuthServiceImpl implements AuthService {
      */
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

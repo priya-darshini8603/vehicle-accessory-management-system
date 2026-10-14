@@ -1,112 +1,158 @@
 package org.example.service.impl;
 
-import jakarta.transaction.Transactional;
-import lombok.AllArgsConstructor;
-import org.example.dto.VehicleDto;
+import lombok.RequiredArgsConstructor;
+import org.example.dto.PageResponse;
+import org.example.dto.VehicleRequest;
+import org.example.dto.VehicleResponse;
 import org.example.entity.Accessory;
 import org.example.entity.User;
 import org.example.entity.Vehicle;
+import org.example.exception.DuplicateResourceException;
+import org.example.exception.ResourceNotFoundException;
 import org.example.mapper.VehicleMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.UserRepository;
 import org.example.repository.VehicleRepository;
 import org.example.service.VehicleService;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class VehicleServiceImpl implements VehicleService {
 
     private final VehicleRepository vehicleRepository;
     private final AccessoryRepository accessoryRepository;
     private final UserRepository userRepository;
+    private final VehicleMapper vehicleMapper;
+
     @Override
-    public VehicleDto createVehicle(VehicleDto vehicleDto) {
-        if (vehicleDto.getVehicleNumber() != null && vehicleRepository.existsByVehicleNumber(vehicleDto.getVehicleNumber())) {
-            throw new IllegalArgumentException("Vehicle with number '" + vehicleDto.getVehicleNumber() + "' already exists!");
+    @Transactional
+    public VehicleResponse createVehicle(VehicleRequest request) {
+        if (vehicleRepository.existsByVehicleNumber(request.vehicleNumber())) {
+            throw duplicateNumber(request.vehicleNumber());
         }
-        Vehicle vehicle = VehicleMapper.mapToVehicle(vehicleDto, new Vehicle());
+        Vehicle vehicle = vehicleMapper.toEntity(request);
+        vehicle.setUser(resolveOwner(request.userId()));
+        return vehicleMapper.toResponse(vehicleRepository.save(vehicle));
+    }
 
-        if (vehicleDto.getUserId() != null) {
-            User user = userRepository.findById(vehicleDto.getUserId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + vehicleDto.getUserId()));
-            vehicle.setUser(user);
+    // Pages over plain vehicles in the database, then loads accessories for just that page in one
+    // query. Fetch-joining a collection in the paged query itself would make Hibernate paginate in memory.
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<VehicleResponse> getVehicles(Pageable pageable) {
+        Page<Vehicle> page = vehicleRepository.findAll(pageable);
+        if (page.hasContent()) {
+            List<Long> ids = page.getContent().stream().map(Vehicle::getId).toList();
+            // Same persistence context, so this initializes the accessories of the page's entities.
+            vehicleRepository.findAllWithAccessoriesByIdIn(ids);
         }
-
-        Vehicle savedVehicle = vehicleRepository.save(vehicle);
-        return VehicleMapper.mapToVehicleDto(savedVehicle);
+        return PageResponse.from(page, vehicleMapper::toResponse);
     }
 
     @Override
-    public List<VehicleDto> getAllVehicles() {
-        return vehicleRepository.findAll().stream()
-                .map(VehicleMapper::mapToVehicleDto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public VehicleDto getVehicleById(Long id) {
-        Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found with id: " + id));
-        return VehicleMapper.mapToVehicleDto(vehicle);
-    }
-
-    @Override
-    public VehicleDto updateVehicle(Long id, VehicleDto vehicleDto) {
-        Vehicle existingVehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found with id: " + id));
-
-        if (vehicleDto.getVehicleNumber() != null &&
-                !existingVehicle.getVehicleNumber().equals(vehicleDto.getVehicleNumber()) &&
-                vehicleRepository.existsByVehicleNumber(vehicleDto.getVehicleNumber())) {
-            throw new IllegalArgumentException("Vehicle number already exists: " + vehicleDto.getVehicleNumber());
-        }
-
-        existingVehicle.setVehicleNumber(vehicleDto.getVehicleNumber());
-        existingVehicle.setMake(vehicleDto.getMake());
-        existingVehicle.setModel(vehicleDto.getModel());
-        existingVehicle.setYear(vehicleDto.getYear());
-
-        if (vehicleDto.getUserId() != null) {
-            User user = userRepository.findById(vehicleDto.getUserId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + vehicleDto.getUserId()));
-            existingVehicle.setUser(user);
-        } else {
-            existingVehicle.setUser(null);
-        }
-
-        Vehicle updatedVehicle = vehicleRepository.save(existingVehicle);
-        return VehicleMapper.mapToVehicleDto(updatedVehicle);
-    }
-
-    @Override
-    public void deleteVehicle(Long id) {
-        Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found with id: " + id));
-        vehicleRepository.delete(vehicle);
+    @Transactional(readOnly = true)
+    public VehicleResponse getVehicleById(Long id) {
+        return vehicleMapper.toResponse(findWithAccessories(id));
     }
 
     @Override
     @Transactional
-    public VehicleDto assignAccessoryToVehicle(Long vehicleId, Long accessoryId) {
-        Vehicle vehicle = vehicleRepository.findById(vehicleId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehicle not found"));
+    public VehicleResponse updateVehicle(Long id, VehicleRequest request) {
+        Vehicle vehicle = findWithAccessories(id);
+        if (vehicleRepository.existsByVehicleNumberAndIdNot(request.vehicleNumber(), id)) {
+            throw duplicateNumber(request.vehicleNumber());
+        }
+        vehicleMapper.updateEntity(vehicle, request);
+        // PUT replaces the full resource, so an omitted userId clears the owner.
+        vehicle.setUser(resolveOwner(request.userId()));
+        // Flush so @UpdateTimestamp is applied (and constraint violations surface) before responding.
+        vehicleRepository.flush();
+        return vehicleMapper.toResponse(vehicle);
+    }
 
+    // Vehicle owns the association, so Hibernate deletes its vehicle_accessories rows with it;
+    // the accessories themselves are kept.
+    @Override
+    @Transactional
+    public void deleteVehicle(Long id) {
+        Vehicle vehicle = vehicleRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Vehicle", id));
+        vehicleRepository.delete(vehicle);
+    }
+
+    // Idempotent: mapping an already-mapped accessory is a no-op.
+    @Override
+    @Transactional
+    public VehicleResponse addAccessory(Long vehicleId, Long accessoryId) {
+        Vehicle vehicle = findWithAccessories(vehicleId);
         Accessory accessory = accessoryRepository.findById(accessoryId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Accessory not found"));
+                .orElseThrow(() -> ResourceNotFoundException.of("Accessory", accessoryId));
+        if (!vehicle.getAccessories().contains(accessory)) {
+            vehicle.addAccessory(accessory);
+        }
+        return vehicleMapper.toResponse(vehicle);
+    }
 
-        // Add accessory to vehicle's accessory set (Many-to-Many link)
-        vehicle.getAccessories().add(accessory);
+    @Override
+    @Transactional
+    public VehicleResponse removeAccessory(Long vehicleId, Long accessoryId) {
+        Vehicle vehicle = findWithAccessories(vehicleId);
+        Accessory accessory = vehicle.getAccessories().stream()
+                .filter(a -> a.getId().equals(accessoryId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Accessory with id " + accessoryId + " is not mapped to vehicle with id " + vehicleId));
+        vehicle.removeAccessory(accessory);
+        return vehicleMapper.toResponse(vehicle);
+    }
 
-        // Optional: If bidirectional, also add vehicle to accessory's vehicle set
-        accessory.getVehicles().add(vehicle);
+    // Replaces the vehicle's mappings with exactly the given set; an empty set clears them.
+    // Fails as a whole (nothing changes) if any id does not exist.
+    @Override
+    @Transactional
+    public VehicleResponse replaceAccessories(Long vehicleId, Set<Long> accessoryIds) {
+        Vehicle vehicle = findWithAccessories(vehicleId);
 
-        Vehicle savedVehicle = vehicleRepository.save(vehicle);
-        return VehicleMapper.mapToVehicleDto(savedVehicle);
+        Map<Long, Accessory> found = accessoryRepository.findAllById(accessoryIds).stream()
+                .collect(Collectors.toMap(Accessory::getId, Function.identity()));
+        if (found.size() != accessoryIds.size()) {
+            Set<Long> missing = new TreeSet<>(accessoryIds);
+            missing.removeAll(found.keySet());
+            throw new ResourceNotFoundException("Accessories not found with ids " + missing);
+        }
+
+        // Only the owning side is updated here: syncing each accessory's inverse collection would
+        // lazily load one collection per accessory, and nothing reads it in this transaction.
+        vehicle.getAccessories().removeIf(existing -> !found.containsKey(existing.getId()));
+        vehicle.getAccessories().addAll(found.values());
+        return vehicleMapper.toResponse(vehicle);
+    }
+
+    private Vehicle findWithAccessories(Long id) {
+        return vehicleRepository.findByIdWithAccessories(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Vehicle", id));
+    }
+
+    private User resolveOwner(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return userRepository.findById(userId)
+                .orElseThrow(() -> ResourceNotFoundException.of("User", userId));
+    }
+
+    private static DuplicateResourceException duplicateNumber(String vehicleNumber) {
+        return new DuplicateResourceException("Vehicle with number '" + vehicleNumber + "' already exists");
     }
 }

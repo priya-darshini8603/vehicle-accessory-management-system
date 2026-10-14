@@ -2,13 +2,13 @@
 package org.example.controller;
 
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.AccessoryRequest;
 import org.example.dto.AccessoryResponse;
-import org.example.mapper.AccessoryMapper;
+import org.example.dto.PageResponse;
 import org.example.service.AccessoryService;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,9 +19,13 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.net.URI;
 
 @RestController
-@RequestMapping("/api/accessories")
+@RequestMapping("/api/admin/accessories")
+@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class AccessoryController {
 
@@ -31,58 +35,47 @@ public class AccessoryController {
     private final AccessoryService accessoryService;
 
     /**
-     * Mapper that converts between DTOs and entity objects for clean API contracts.
-     */
-    private final AccessoryMapper accessoryMapper;
-
-    /**
      * Creates a new accessory record from the incoming request payload.
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AccessoryResponse> addAccessory(
-            @Valid @RequestBody AccessoryRequest request) {
-        AccessoryResponse response = accessoryMapper.toResponse(
-                accessoryService.addAccessory(accessoryMapper.toEntity(request)));
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    public ResponseEntity<AccessoryResponse> createAccessory(@Valid @RequestBody AccessoryRequest request) {
+        AccessoryResponse created = accessoryService.createAccessory(request);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}").buildAndExpand(created.id()).toUri();
+        return ResponseEntity.created(location).body(created);
     }
 
     /**
-     * Returns the full inventory list for the accessory catalog.
+     * Returns the accessory catalog, paged. Supports ?page=0&size=20&sort=name,asc
      */
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<AccessoryResponse>> getAllAccessories() {
-        return ResponseEntity.ok(accessoryMapper.toResponses(accessoryService.getAllAccessories()));
+    public ResponseEntity<PageResponse<AccessoryResponse>> getAccessories(
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        return ResponseEntity.ok(accessoryService.getAccessories(pageable));
     }
 
     /**
      * Fetches one accessory by its identifier.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AccessoryResponse> getAccessoryById(@PathVariable Long id) {
-        return ResponseEntity.ok(accessoryMapper.toResponse(accessoryService.getAccessoryById(id)));
+        return ResponseEntity.ok(accessoryService.getAccessoryById(id));
     }
 
     /**
-     * Updates an existing accessory using the supplied patch-like payload.
+     * Replaces all editable fields of an existing accessory.
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AccessoryResponse> updateAccessory(
             @PathVariable Long id,
             @Valid @RequestBody AccessoryRequest request) {
-        AccessoryResponse response = accessoryMapper.toResponse(
-                accessoryService.updateAccessory(id, accessoryMapper.toEntity(request)));
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(accessoryService.updateAccessory(id, request));
     }
 
     /**
-     * Removes a stored accessory when it is not assigned to any vehicle.
+     * Deletes an accessory, unmapping it from any vehicles first.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteAccessory(@PathVariable Long id) {
         accessoryService.deleteAccessory(id);
         return ResponseEntity.noContent().build();

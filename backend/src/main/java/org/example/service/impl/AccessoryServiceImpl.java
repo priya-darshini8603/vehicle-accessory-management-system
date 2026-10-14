@@ -1,15 +1,17 @@
 package org.example.service.impl;
 
-import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.example.dto.AccessoryRequest;
+import org.example.dto.AccessoryResponse;
+import org.example.dto.PageResponse;
 import org.example.entity.Accessory;
+import org.example.exception.ResourceNotFoundException;
+import org.example.mapper.AccessoryMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.service.AccessoryService;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -19,54 +21,47 @@ public class AccessoryServiceImpl implements AccessoryService {
      * Data access layer that persists accessory catalog entries.
      */
     private final AccessoryRepository accessoryRepository;
+    private final AccessoryMapper accessoryMapper;
 
     @Override
-    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
-    public Accessory addAccessory(Accessory accessory) {
-        accessory.setId(null);
-        return accessoryRepository.save(accessory);
+    public AccessoryResponse createAccessory(AccessoryRequest request) {
+        return accessoryMapper.toResponse(accessoryRepository.save(accessoryMapper.toEntity(request)));
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN')")
     @Transactional(readOnly = true)
-    public List<Accessory> getAllAccessories() {
-        return accessoryRepository.findAll();
+    public PageResponse<AccessoryResponse> getAccessories(Pageable pageable) {
+        return PageResponse.from(accessoryRepository.findAll(pageable), accessoryMapper::toResponse);
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN')")
     @Transactional(readOnly = true)
-    public Accessory getAccessoryById(Long id) {
-        return findAccessoryById(id);
+    public AccessoryResponse getAccessoryById(Long id) {
+        return accessoryMapper.toResponse(findAccessoryById(id));
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
-    public Accessory updateAccessory(Long id, Accessory details) {
+    public AccessoryResponse updateAccessory(Long id, AccessoryRequest request) {
         Accessory existing = findAccessoryById(id);
-        existing.setName(details.getName());
-        existing.setCategory(details.getCategory());
-        existing.setPrice(details.getPrice());
-        existing.setStockQuantity(details.getStockQuantity());
-        return existing;
+        accessoryMapper.updateEntity(existing, request);
+        // Flush so @UpdateTimestamp is applied before the response is built.
+        accessoryRepository.flush();
+        return accessoryMapper.toResponse(existing);
     }
 
+    /**
+     * Deletes the accessory after removing it from every vehicle it is mapped to.
+     */
     @Override
-    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public void deleteAccessory(Long id) {
-        Accessory accessory = findAccessoryById(id);
-
-        if (!accessory.getVehicles().isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Cannot delete accessory assigned to vehicles");
+        if (!accessoryRepository.existsById(id)) {
+            throw ResourceNotFoundException.of("Accessory", id);
         }
-
-        accessoryRepository.delete(accessory);
+        accessoryRepository.deleteVehicleMappings(id);
+        accessoryRepository.deleteById(id);
     }
 
     /**
@@ -74,8 +69,6 @@ public class AccessoryServiceImpl implements AccessoryService {
      */
     private Accessory findAccessoryById(Long id) {
         return accessoryRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Accessory not found"));
+                .orElseThrow(() -> ResourceNotFoundException.of("Accessory", id));
     }
 }

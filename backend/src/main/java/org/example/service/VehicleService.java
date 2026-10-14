@@ -1,15 +1,29 @@
 package org.example.service;
 
-import org.example.dto.VehicleDto;
-import java.util.List;
+import org.example.dto.PageResponse;
+import org.example.dto.VehicleRequest;
+import org.example.dto.VehicleResponse;
+import org.springframework.data.domain.Pageable;
+
+import java.util.Set;
 
 public interface VehicleService {
-    VehicleDto createVehicle(VehicleDto vehicleDto);
-    List<VehicleDto> getAllVehicles();
-    VehicleDto getVehicleById(Long id);
-    VehicleDto updateVehicle(Long id, VehicleDto vehicleDto);
+
+    VehicleResponse createVehicle(VehicleRequest request);
+
+    PageResponse<VehicleResponse> getVehicles(Pageable pageable);
+
+    VehicleResponse getVehicleById(Long id);
+
+    VehicleResponse updateVehicle(Long id, VehicleRequest request);
+
     void deleteVehicle(Long id);
 
-    // New Many-to-Many method
-    VehicleDto assignAccessoryToVehicle(Long vehicleId, Long accessoryId);
+    // Vehicle–accessory mappings
+
+    VehicleResponse addAccessory(Long vehicleId, Long accessoryId);
+
+    VehicleResponse removeAccessory(Long vehicleId, Long accessoryId);
+
+    VehicleResponse replaceAccessories(Long vehicleId, Set<Long> accessoryIds);
 }
