@@ -7,12 +7,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.util.JwtService;
+
+import org.example.service.JwtService;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -25,15 +28,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    /**
-     * JWT utility that validates the signed token and extracts claims.
-     */
     private final JwtService jwtService;
-
-    /**
-     * User lookup service required to build a Spring authentication principal.
-     */
     private final UserDetailsService userDetailsService;
+    private final RevokedTokenService revokedTokenService;
 
     @Override
     protected void doFilterInternal(
@@ -49,40 +46,83 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String token = header.substring(7);
+        String token = header.substring(7).trim();
 
         try {
+            // Reject tokens that have already been revoked.
+            if (revokedTokenService.isTokenRevoked(token)) {
+                writeUnauthorized(response, "TOKEN_REVOKED",
+                        "Token has been revoked. Please log in again.");
+                return;
+            }
+
             String email = jwtService.extractUsername(token);
 
-            if (email != null
-                    && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-
-                if (jwtService.isTokenValid(token, userDetails)) {
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities());
-
-                    authentication.setDetails(
-                            new WebAuthenticationDetailsSource().buildDetails(request));
-
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
+            if (email == null || email.isBlank()) {
+                writeUnauthorized(response, "INVALID_TOKEN",
+                        "Invalid or expired token");
+                return;
             }
-        } catch (JwtException | IllegalArgumentException exception) {
-            log.debug("Rejected invalid bearer token", exception);
-            SecurityContextHolder.clearContext();
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write(
-                    "{\"error\":\"INVALID_TOKEN\","
-                            + "\"message\":\"Invalid or expired token\"}");
+
+            if (SecurityContextHolder.getContext()
+                    .getAuthentication() == null) {
+
+                UserDetails userDetails =
+                        userDetailsService.loadUserByUsername(email);
+
+                if (!jwtService.isTokenValid(token, userDetails)) {
+                    writeUnauthorized(response, "INVALID_TOKEN",
+                            "Invalid or expired token");
+                    return;
+                }
+
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities());
+
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource()
+                                .buildDetails(request));
+
+                SecurityContextHolder.getContext()
+                        .setAuthentication(authentication);
+            }
+
+        } catch (JwtException
+                 | IllegalArgumentException
+                 | AuthenticationException exception) {
+
+            log.debug("Rejected invalid bearer token");
+
+            writeUnauthorized(response, "INVALID_TOKEN",
+                    "Invalid or expired token");
             return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void writeUnauthorized(
+            HttpServletResponse response,
+            String error,
+            String message) throws IOException {
+
+        SecurityContextHolder.clearContext();
+
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        // Escape strings safely before writing JSON.
+        String safeError = error.replace("\\", "\\\\")
+                .replace("\"", "\\\"");
+        String safeMessage = message.replace("\\", "\\\\")
+                .replace("\"", "\\\"");
+
+        response.getWriter().write(
+                "{\"error\":\"" + safeError
+                        + "\",\"message\":\"" + safeMessage + "\"}");
     }
 }

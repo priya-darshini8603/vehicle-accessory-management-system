@@ -8,7 +8,4 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AccessoryRepository extends JpaRepository<Accessory, Long> {
-
-    @Query("SELECT COUNT(v) > 0 FROM Vehicle v JOIN v.accessories a WHERE a.id = :accessoryId")
-    boolean isAccessoryAssignedToVehicle(@Param("accessoryId") Long accessoryId);
 }

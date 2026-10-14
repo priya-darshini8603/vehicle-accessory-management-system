@@ -1,8 +1,6 @@
 package org.example.dto;
 
-/**
- * Public response shape exposed through the accessories API.
- */
+// Data returned by the accessory API.
 public record AccessoryResponse(
         Long id,
         String name,

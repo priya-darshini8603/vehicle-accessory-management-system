@@ -3,9 +3,7 @@ package org.example.service;
 import java.util.List;
 import org.example.entity.Accessory;
 
-/**
- * Contract for catalog operations on accessory inventory records.
- */
+// Accessory business methods.
 public interface AccessoryService {
 
     Accessory addAccessory(Accessory accessory);

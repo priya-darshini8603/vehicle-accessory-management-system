@@ -6,10 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/**
- * Payload used to register a new customer or admin account.
- * Field validation is intentionally strict to keep the API input consistent.
- */
+// User signup details.
 public record RegisterRequest(
 
         @NotBlank(message = "Full name is required")

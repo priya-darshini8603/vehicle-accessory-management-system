@@ -2,6 +2,7 @@
 package org.example.config;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,42 +22,36 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableMethodSecurity
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
-    /**
-     * JWT filter that validates each incoming bearer token before the request continues.
-     */
     private final JwtAuthenticationFilter jwtFilter;
 
-    /**
-     * Password hashing strategy used for user registration and authentication.
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
+        log.debug("Creating password encoder");
         return new BCryptPasswordEncoder(12);
     }
 
-    /**
-     * Builds the Spring AuthenticationManager used by the login flow.
-     */
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration configuration) {
+
         try {
+            log.debug("Initializing authentication manager");
             return configuration.getAuthenticationManager();
         } catch (Exception exception) {
+            log.error("Authentication manager initialization failed",
+                    exception);
             throw new IllegalStateException(
-                    "Authentication manager could not be initialized", exception);
+                    "Authentication manager could not be initialized",
+                    exception);
         }
     }
 
-    /**
-     * Configures stateless JWT security for the API layer.
-     * CSRF is ignored only for authentication endpoints because they are caller-driven,
-     * while the rest of the application still keeps the default protection.
-     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+
         try {
             http
                     .csrf(AbstractHttpConfigurer::disable)
@@ -65,27 +60,43 @@ public class SecurityConfig {
                     .sessionManagement(session -> session
                             .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers(HttpMethod.POST,
+                            .requestMatchers(
+                                    HttpMethod.POST,
                                     "/api/auth/register",
-                                    "/api/auth/login")
-                            .permitAll()
+                                    "/api/auth/login"
+                            ).permitAll()
                             .requestMatchers("/error").permitAll()
 
-                            // Only administrators can manage system inventory.
-                            .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                            .requestMatchers("/api/accessories/**").hasRole("ADMIN")
+                            // Only admins can manage inventory.
+                            .requestMatchers("/api/admin/**")
+                            .hasRole("ADMIN")
+                            .requestMatchers("/api/accessories/**")
+                            .hasRole("ADMIN")
 
-                            // Regular users must authenticate before accessing their section.
-                            .requestMatchers("/api/user/**").authenticated()
-                            .anyRequest().authenticated())
+                            // Authenticated users can access their section.
+                            .requestMatchers("/api/user/**")
+                            .authenticated()
+
+                            // Includes POST /api/auth/logout.
+                            .anyRequest().authenticated()
+                    )
                     .headers(Customizer.withDefaults())
                     .addFilterBefore(
                             jwtFilter,
-                            UsernamePasswordAuthenticationFilter.class);
+                            UsernamePasswordAuthenticationFilter.class
+                    );
 
-            return http.build();
+            SecurityFilterChain filterChain = http.build();
+
+            log.info("Security filter chain initialized");
+            return filterChain;
+
         } catch (Exception exception) {
-            throw new IllegalStateException("Security filter chain initialization failed", exception);
+            log.error("Security filter chain initialization failed",
+                    exception);
+            throw new IllegalStateException(
+                    "Security filter chain initialization failed",
+                    exception);
         }
     }
 }

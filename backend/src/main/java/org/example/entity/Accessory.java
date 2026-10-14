@@ -24,7 +24,7 @@ public class Accessory {
     private Double price;
     private Integer stockQuantity;
 
-    // Inverse side of the Many-to-Many relationship
+    // Connects this accessory to vehicles.
     @ManyToMany(mappedBy = "accessories")
     private Set<Vehicle> vehicles = new HashSet<>();
 }

@@ -3,10 +3,7 @@ package org.example.dto;
 
 import org.example.enums.Role;
 
-/**
- * Safe user profile payload returned to API consumers.
- * It excludes sensitive fields such as the password hash.
- */
+// Safe user data sent back to the client.
 public record UserResponse(
         Long id,
         String fullName,
