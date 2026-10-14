@@ -10,6 +10,7 @@ import org.example.dto.UserResponse;
 import org.example.service.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +30,7 @@ public class AuthController {
      * Creates a new account and returns the user record for the freshly created profile.
      */
     @PostMapping("/register")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<UserResponse> register(
             @Valid @RequestBody RegisterRequest request) {
 
@@ -40,6 +42,7 @@ public class AuthController {
      * Validates credentials and returns a signed JWT token pair with user details.
      */
     @PostMapping("/login")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<AuthResponse> login(
             @Valid @RequestBody LoginRequest request) {
 

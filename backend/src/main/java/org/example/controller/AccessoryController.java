@@ -10,6 +10,7 @@ import org.example.mapper.AccessoryMapper;
 import org.example.service.AccessoryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,6 +39,7 @@ public class AccessoryController {
      * Creates a new accessory record from the incoming request payload.
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AccessoryResponse> addAccessory(
             @Valid @RequestBody AccessoryRequest request) {
         AccessoryResponse response = accessoryMapper.toResponse(
@@ -49,6 +51,7 @@ public class AccessoryController {
      * Returns the full inventory list for the accessory catalog.
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AccessoryResponse>> getAllAccessories() {
         return ResponseEntity.ok(accessoryMapper.toResponses(accessoryService.getAllAccessories()));
     }
@@ -57,6 +60,7 @@ public class AccessoryController {
      * Fetches one accessory by its identifier.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AccessoryResponse> getAccessoryById(@PathVariable Long id) {
         return ResponseEntity.ok(accessoryMapper.toResponse(accessoryService.getAccessoryById(id)));
     }
@@ -65,6 +69,7 @@ public class AccessoryController {
      * Updates an existing accessory using the supplied patch-like payload.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AccessoryResponse> updateAccessory(
             @PathVariable Long id,
             @Valid @RequestBody AccessoryRequest request) {
@@ -77,6 +82,7 @@ public class AccessoryController {
      * Removes a stored accessory when it is not assigned to any vehicle.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteAccessory(@PathVariable Long id) {
         accessoryService.deleteAccessory(id);
         return ResponseEntity.noContent().build();
