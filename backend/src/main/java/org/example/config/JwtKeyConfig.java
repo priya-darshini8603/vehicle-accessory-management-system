@@ -1,23 +1,23 @@
 
-package org.example.security;
+package org.example.config;
 
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import javax.crypto.SecretKey;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@Slf4j
 public class JwtKeyConfig {
 
     // HS256 requires a key of at least 256 bits.
     private static final int MIN_KEY_BYTES = 32;
 
-    /**
-     * Builds the HMAC key used to sign JWTs from the Base64-encoded app.jwt.secret property.
-     * A fixed, externally supplied secret keeps tokens valid across restarts and multiple instances.
-     */
+    // Builds the JWT signing key from the Base64-encoded app.jwt.secret property.
+    // A fixed, externally supplied secret keeps tokens valid across restarts and multiple instances.
     @Bean
     public SecretKey jwtSigningKey(@Value("${app.jwt.secret:}") String base64Secret) {
         if (base64Secret == null || base64Secret.isBlank()) {
@@ -35,6 +35,7 @@ public class JwtKeyConfig {
             throw new IllegalStateException(
                     "app.jwt.secret must decode to at least " + MIN_KEY_BYTES + " bytes");
         }
+        log.info("Loaded JWT signing key from configuration");
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

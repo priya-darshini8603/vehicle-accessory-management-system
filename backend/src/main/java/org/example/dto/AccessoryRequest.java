@@ -9,9 +9,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
-/**
- * Request model for creating or updating an accessory item in the store inventory.
- */
+// Holds the data for adding or updating an accessory.
 public record AccessoryRequest(
 
         @NotBlank(message = "Name is required")

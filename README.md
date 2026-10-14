@@ -60,6 +60,7 @@ Every endpoint except register and login needs `Authorization: Bearer <accessTok
 |---|---|---|---|
 | POST | `/api/auth/register` | `{fullName, email, password (12–72), phoneNumber?}` | `201` user |
 | POST | `/api/auth/login` | `{email, password}` | `200 {accessToken, tokenType, expiresIn, user}` |
+| POST | `/api/auth/logout` | – (needs `Authorization: Bearer`) | `200`. The token is revoked; using it again returns `401`. |
 
 ### Vehicles (ADMIN)
 | Method | Path | Notes |

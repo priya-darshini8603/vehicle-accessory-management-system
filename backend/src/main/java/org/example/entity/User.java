@@ -39,7 +39,7 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role; // ADMIN or CUSTOMER
+    private Role role; // Stores the user role.
 
     @CreationTimestamp
     @Column(updatable = false)

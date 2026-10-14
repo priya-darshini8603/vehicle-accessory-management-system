@@ -9,7 +9,7 @@ import org.example.enums.Role;
 import org.example.exception.DuplicateResourceException;
 import org.example.mapper.UserMapper;
 import org.example.repository.UserRepository;
-import org.example.security.JwtService;
+import org.example.service.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

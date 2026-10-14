@@ -5,10 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/**
- * Request payload for user authentication.
- * The email is normalized to lowercase before evaluation in the auth service.
- */
+// Login details sent by the user.
 public record LoginRequest(
 
         @NotBlank(message = "Email is required")

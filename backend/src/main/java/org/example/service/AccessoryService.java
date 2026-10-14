@@ -5,9 +5,7 @@ import org.example.dto.AccessoryResponse;
 import org.example.dto.PageResponse;
 import org.springframework.data.domain.Pageable;
 
-/**
- * Contract for catalog operations on accessory inventory records.
- */
+// Accessory business methods.
 public interface AccessoryService {
 
     AccessoryResponse createAccessory(AccessoryRequest request);

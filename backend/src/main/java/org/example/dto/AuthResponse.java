@@ -1,10 +1,7 @@
 
 package org.example.dto;
 
-/**
- * Authentication payload returned after a successful login.
- * The token is used by the client for subsequent protected API calls.
- */
+// Data returned after a successful login.
 public record AuthResponse(
         String accessToken,
         String tokenType,

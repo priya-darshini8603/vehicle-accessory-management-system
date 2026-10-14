@@ -2,6 +2,7 @@
 package org.example.security;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.entity.User;
 import org.example.repository.UserRepository;
 import org.jspecify.annotations.NonNull;
@@ -12,20 +13,23 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CustomUserDetailsService implements UserDetailsService {
 
-    /**
-     * Repository used to resolve a user record by email for authentication.
-     */
+    // Finds the user by email for login checks.
     private final UserRepository userRepository;
 
     @Override
     public UserDetails loadUserByUsername(@NonNull String email) {
+        log.debug("Loading user details for authentication");
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new UsernameNotFoundException("User not found"));
+                .orElseThrow(() -> {
+                    log.warn("Authentication rejected because the user was not found");
+                    return new UsernameNotFoundException("User not found");
+                });
+        log.debug("Loaded user details for authentication");
 
-        // Map the JPA entity to Spring Security's UserDetails contract.
+        // Turns the user entity into Spring Security data.
         return org.springframework.security.core.userdetails.User
                 .withUsername(user.getEmail())
                 .password(user.getPassword())

@@ -40,7 +40,7 @@ public class Accessory {
     // Optional inventory count (not part of the core spec)
     private Integer stockQuantity;
 
-    // Inverse side of the Many-to-Many relationship
+    // Connects this accessory to vehicles.
     @ManyToMany(mappedBy = "accessories")
     private Set<Vehicle> vehicles = new HashSet<>();
 

@@ -117,6 +117,28 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void logoutRevokesTokenButNotNewLogins() throws Exception {
+        String token = login("admin@test.local", "AdminPassword123!");
+
+        mockMvc.perform(auth(post("/api/auth/logout"), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Logout successful"));
+
+        mockMvc.perform(auth(get("/api/admin/accessories"), token))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("Token has been revoked. Please log in again."));
+
+        String freshToken = login("admin@test.local", "AdminPassword123!");
+        mockMvc.perform(auth(get("/api/admin/accessories"), freshToken)).andExpect(status().isOk());
+    }
+
+    @Test
+    void logoutWithoutTokenReturns401() throws Exception {
+        mockMvc.perform(post("/api/auth/logout")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void tamperedTokenReturns401() throws Exception {
         mockMvc.perform(get("/api/compatibility").param("vehicleNumber", "X")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer not.a.jwt"))

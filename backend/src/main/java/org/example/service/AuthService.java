@@ -5,9 +5,7 @@ import org.example.dto.LoginRequest;
 import org.example.dto.RegisterRequest;
 import org.example.dto.UserResponse;
 
-/**
- * Public contract for authentication actions such as registration and login.
- */
+// Auth methods for login and sign-up.
 public interface AuthService {
 
     UserResponse register(RegisterRequest request);
