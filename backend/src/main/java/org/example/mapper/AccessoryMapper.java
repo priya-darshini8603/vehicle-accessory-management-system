@@ -12,11 +12,17 @@ public class AccessoryMapper {
 
     public Accessory toEntity(AccessoryRequest request) {
         Accessory accessory = new Accessory();
+        updateEntity(accessory, request);
+        return accessory;
+    }
+
+    // Copies editable fields onto an existing (managed) entity.
+    public void updateEntity(Accessory accessory, AccessoryRequest request) {
         accessory.setName(request.name());
         accessory.setCategory(request.category());
         accessory.setPrice(request.price());
+        accessory.setDescription(request.description());
         accessory.setStockQuantity(request.stockQuantity());
-        return accessory;
     }
 
     public AccessoryResponse toResponse(Accessory accessory) {
@@ -25,7 +31,10 @@ public class AccessoryMapper {
                 accessory.getName(),
                 accessory.getCategory(),
                 accessory.getPrice(),
-                accessory.getStockQuantity());
+                accessory.getDescription(),
+                accessory.getStockQuantity(),
+                accessory.getCreatedAt(),
+                accessory.getUpdatedAt());
     }
 
     public List<AccessoryResponse> toResponses(List<Accessory> accessories) {
