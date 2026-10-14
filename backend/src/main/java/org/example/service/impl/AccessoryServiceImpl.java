@@ -6,6 +6,7 @@ import org.example.entity.Accessory;
 import org.example.repository.AccessoryRepository;
 import org.example.service.AccessoryService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,6 +21,7 @@ public class AccessoryServiceImpl implements AccessoryService {
     private final AccessoryRepository accessoryRepository;
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public Accessory addAccessory(Accessory accessory) {
         accessory.setId(null);
@@ -27,18 +29,21 @@ public class AccessoryServiceImpl implements AccessoryService {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional(readOnly = true)
     public List<Accessory> getAllAccessories() {
         return accessoryRepository.findAll();
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional(readOnly = true)
     public Accessory getAccessoryById(Long id) {
         return findAccessoryById(id);
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public Accessory updateAccessory(Long id, Accessory details) {
         Accessory existing = findAccessoryById(id);
@@ -50,6 +55,7 @@ public class AccessoryServiceImpl implements AccessoryService {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public void deleteAccessory(Long id) {
         Accessory accessory = findAccessoryById(id);
