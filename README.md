@@ -133,10 +133,16 @@ Every error uses the same response body. `fieldErrors` appears only on validatio
 | 422 | Business rule violation (e.g. an admin demoting themselves) |
 | 500 | Unexpected error (details are logged, never returned) |
 
+<!-- 
+
+
 ## Postman
 
 Import `backend/postman/vehicle-accessory-management-system.postman_collection.json`. Run it top to bottom, or with
 the Collection Runner: it logs in, saves tokens and ids, runs every endpoint including the error cases, and cleans up.
+
+*/
+-->
 
 ## Project layout
 
