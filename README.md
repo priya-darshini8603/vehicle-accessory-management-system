@@ -40,6 +40,7 @@ Outside your machine, set `SPRING_PROFILES_ACTIVE=prod` (or any profile other th
 | `DB_PASSWORD` | ✔ | – | |
 | `JWT_SECRET` | ✔ | – | Base64 HMAC key, ≥ 32 bytes: `openssl rand -base64 48`. The app refuses to start without it. |
 | `JWT_EXPIRATION_MS` | | `1800000` (30 min) | Token lifetime |
+| `REFRESH_TOKEN_EXPIRATION_MS` | | `2592000000` (30 days) | Refresh-token lifetime |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | | – | Bootstrap admin, created at startup if the email doesn't exist yet (password ≥ 12 chars) |
 | `DDL_AUTO` | | `update` | Hibernate schema mode |
 | `PORT` | | `8080` | |
@@ -53,14 +54,17 @@ Outside your machine, set `SPRING_PROFILES_ACTIVE=prod` (or any profile other th
 
 ## API
 
-Every endpoint except register and login needs `Authorization: Bearer <accessToken>`.
+Every endpoint except register, login, and refresh needs `Authorization: Bearer <accessToken>`.
 
 ### Auth (public)
 | Method | Path | Body | Response |
 |---|---|---|---|
 | POST | `/api/auth/register` | `{fullName, email, password (12–72), phoneNumber?}` | `201` user |
-| POST | `/api/auth/login` | `{email, password}` | `200 {accessToken, tokenType, expiresIn, user}` |
-| POST | `/api/auth/logout` | – (needs `Authorization: Bearer`) | `200`. The token is revoked; using it again returns `401`. |
+| POST | `/api/auth/login` | `{email, password}` | `200 {accessToken, refreshToken, tokenType, expiresIn, user}` |
+| POST | `/api/auth/refresh` | `{refreshToken}` | `200` with a new access token and rotated refresh token; the old refresh token cannot be reused |
+| POST | `/api/auth/logout` | `{refreshToken}` (optional; needs `Authorization: Bearer`) | `200`. Revokes the supplied refresh token. If omitted, all refresh tokens for the authenticated user are revoked. Access tokens remain valid until they expire (30 minutes by default). |
+
+Refresh tokens are opaque and stored only as SHA-256 hashes. They are checked for expiry and revocation whenever used, and rotated on every refresh request.
 
 ### Vehicles (ADMIN)
 | Method | Path | Notes |
@@ -133,16 +137,10 @@ Every error uses the same response body. `fieldErrors` appears only on validatio
 | 422 | Business rule violation (e.g. an admin demoting themselves) |
 | 500 | Unexpected error (details are logged, never returned) |
 
-<!-- 
-
-
 ## Postman
 
 Import `backend/postman/vehicle-accessory-management-system.postman_collection.json`. Run it top to bottom, or with
 the Collection Runner: it logs in, saves tokens and ids, runs every endpoint including the error cases, and cleans up.
-
-*/
--->
 
 ## Project layout
 

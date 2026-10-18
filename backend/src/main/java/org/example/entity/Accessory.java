@@ -1,7 +1,16 @@
 package org.example.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -11,13 +20,11 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
-
 @Entity
 @Table(name = "accessories")
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class Accessory {
 
     @Id
@@ -30,18 +37,15 @@ public class Accessory {
     @Column(nullable = false, length = 50)
     private String category;
 
-    // BigDecimal avoids floating-point rounding errors for monetary values
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
 
     @Column(length = 1000)
     private String description;
 
-    // Optional inventory count (not part of the core spec)
     private Integer stockQuantity;
 
-    // Connects this accessory to vehicles.
-    @ManyToMany(mappedBy = "accessories")
+    @ManyToMany(mappedBy = "accessories", fetch = FetchType.LAZY)
     private Set<Vehicle> vehicles = new HashSet<>();
 
     @CreationTimestamp
@@ -52,15 +56,6 @@ public class Accessory {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    // Detaches this accessory from every vehicle so it can be deleted without
-    // violating the join-table foreign key (Vehicle owns the association).
-    public void detachFromAllVehicles() {
-        for (Vehicle vehicle : new HashSet<>(vehicles)) {
-            vehicle.removeAccessory(this);
-        }
-    }
-
-    // Identity-based equality that is safe for Hibernate proxies and transient instances.
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

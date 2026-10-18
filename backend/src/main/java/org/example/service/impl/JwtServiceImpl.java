@@ -3,6 +3,7 @@ package org.example.service.impl;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,7 @@ public class JwtServiceImpl implements JwtService {
     // Set the key and token lifetime.
     public JwtServiceImpl(
             SecretKey jwtSigningKey,
-            @Value("${app.jwt.expiration-ms:1800000}") long expirationMs) {
+            @Value("${app.jwt.expiration-ms}") long expirationMs) {
         this.signingKey = jwtSigningKey;
         this.expirationMs = expirationMs;
         log.info("JWT service initialized with expiration of {} ms", expirationMs);
@@ -42,6 +43,7 @@ public class JwtServiceImpl implements JwtService {
 
         return Jwts.builder()
                 .subject(userDetails.getUsername())
+                .id(UUID.randomUUID().toString())
                 .claim("roles", userDetails.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
                         .toList())

@@ -31,16 +31,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String INVALID_TOKEN = "Invalid or expired token";
-    private static final String REVOKED_TOKEN = "Token has been revoked. Please log in again.";
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
-    private final RevokedTokenService revokedTokenService;
 
-    /**
-     * Writes the standard 401 error body when a supplied token is rejected.
-     */
+    //Writes the standard 401 error body when a supplied token is rejected
     private final AuthenticationEntryPoint authenticationEntryPoint;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return "/api/auth/refresh".equals(request.getServletPath());
+    }
 
     @Override
     protected void doFilterInternal(
@@ -59,16 +60,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = header.substring(BEARER_PREFIX.length()).trim();
 
         try {
-            // Reject tokens that have already been revoked by logout.
-            if (revokedTokenService.isTokenRevoked(token)) {
-                reject(request, response, REVOKED_TOKEN, null);
-                return;
-            }
-
             String email = jwtService.extractUsername(token);
 
             if (email == null || email.isBlank()) {
-                reject(request, response, INVALID_TOKEN, null);
+                reject(request, response, new BadCredentialsException(INVALID_TOKEN));
                 return;
             }
 
@@ -79,7 +74,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
                 if (!jwtService.isTokenValid(token, userDetails)) {
-                    reject(request, response, INVALID_TOKEN, null);
+                    reject(request, response, new BadCredentialsException(INVALID_TOKEN));
                     return;
                 }
 
@@ -95,17 +90,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (JwtException | IllegalArgumentException | AuthenticationException exception) {
-            reject(request, response, INVALID_TOKEN, exception);
+            reject(request, response, new BadCredentialsException(INVALID_TOKEN, exception));
             return;
         }
 
         filterChain.doFilter(request, response);
     }
 
-    private void reject(HttpServletRequest request, HttpServletResponse response,
-                        String message, Exception cause) throws IOException, ServletException {
-        log.debug("Rejected bearer token: {}", message, cause);
+    private void reject(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AuthenticationException exception)
+            throws IOException, ServletException {
+        log.debug("Rejected bearer token", exception);
         SecurityContextHolder.clearContext();
-        authenticationEntryPoint.commence(request, response, new BadCredentialsException(message, cause));
+        authenticationEntryPoint.commence(request, response, exception);
     }
 }

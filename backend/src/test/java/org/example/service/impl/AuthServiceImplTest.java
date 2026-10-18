@@ -10,6 +10,7 @@ import org.example.exception.DuplicateResourceException;
 import org.example.mapper.UserMapper;
 import org.example.repository.UserRepository;
 import org.example.service.JwtService;
+import org.example.service.RefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +20,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
@@ -45,11 +47,18 @@ class AuthServiceImplTest {
     @Mock
     private JwtService jwtService;
 
+    @Mock
+    private RefreshTokenService refreshTokenService;
+
+    @Mock
+    private UserDetailsService userDetailsService;
+
     private AuthServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new AuthServiceImpl(userRepository, passwordEncoder, authenticationManager, jwtService, new UserMapper());
+        service = new AuthServiceImpl(userRepository, passwordEncoder, authenticationManager,
+                jwtService, refreshTokenService, userDetailsService, new UserMapper());
     }
 
     @Test
@@ -89,13 +98,35 @@ class AuthServiceImplTest {
         when(userRepository.findByEmail("asha@example.com")).thenReturn(Optional.of(user));
         when(jwtService.generateToken(principal)).thenReturn("jwt-token");
         when(jwtService.getExpirationMs()).thenReturn(1_800_000L);
+        when(refreshTokenService.createFor(user)).thenReturn("opaque-refresh-token");
 
         AuthResponse response = service.login(new LoginRequest("ASHA@example.com", "a-long-password"));
 
         assertThat(response.accessToken()).isEqualTo("jwt-token");
+        assertThat(response.refreshToken()).isEqualTo("opaque-refresh-token");
         assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.expiresIn()).isEqualTo(1800);
         assertThat(response.user().role()).isEqualTo(Role.CUSTOMER);
+    }
+
+    @Test
+    void refreshRotatesRefreshTokenAndReturnsNewAccessToken() {
+        User user = new User();
+        user.setEmail("asha@example.com");
+        user.setRole(Role.CUSTOMER);
+        UserDetails principal = org.springframework.security.core.userdetails.User
+                .withUsername("asha@example.com").password("hashed").roles("CUSTOMER").build();
+        when(refreshTokenService.rotate("old-refresh-token"))
+                .thenReturn(new RefreshTokenService.RotatedToken(user, "new-refresh-token"));
+        when(userDetailsService.loadUserByUsername("asha@example.com")).thenReturn(principal);
+        when(jwtService.generateToken(principal)).thenReturn("new-access-token");
+        when(jwtService.getExpirationMs()).thenReturn(1_800_000L);
+
+        AuthResponse response = service.refresh("old-refresh-token");
+
+        assertThat(response.accessToken()).isEqualTo("new-access-token");
+        assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+        verify(refreshTokenService).rotate("old-refresh-token");
     }
 
     @Test

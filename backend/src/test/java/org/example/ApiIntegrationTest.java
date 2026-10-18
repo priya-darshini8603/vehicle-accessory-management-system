@@ -2,6 +2,10 @@ package org.example;
 
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
+import org.example.entity.RefreshToken;
+import org.example.entity.User;
+import org.example.repository.RefreshTokenRepository;
+import org.example.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -12,6 +16,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HexFormat;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -30,6 +38,12 @@ class ApiIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Test
     void fullAdminAndCustomerFlow() throws Exception {
@@ -117,17 +131,25 @@ class ApiIntegrationTest {
     }
 
     @Test
-    void logoutRevokesTokenButNotNewLogins() throws Exception {
-        String token = login("admin@test.local", "AdminPassword123!");
+    void logoutRevokesRefreshTokenButAccessTokenExpiresNaturally() throws Exception {
+        String loginBody = mockMvc.perform(json(post("/api/auth/login"),
+                        "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String token = JsonPath.read(loginBody, "$.accessToken");
+        String refreshToken = JsonPath.read(loginBody, "$.refreshToken");
 
-        mockMvc.perform(auth(post("/api/auth/logout"), token))
+        mockMvc.perform(auth(json(post("/api/auth/logout"),
+                        "{\"refreshToken\":\"" + refreshToken + "\"}"), token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Logout successful"));
 
         mockMvc.perform(auth(get("/api/admin/accessories"), token))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.message").value("Token has been revoked. Please log in again."));
+                .andExpect(status().isOk());
+
+        mockMvc.perform(json(post("/api/auth/refresh"),
+                        "{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isUnauthorized());
 
         String freshToken = login("admin@test.local", "AdminPassword123!");
         mockMvc.perform(auth(get("/api/admin/accessories"), freshToken)).andExpect(status().isOk());
@@ -136,6 +158,63 @@ class ApiIntegrationTest {
     @Test
     void logoutWithoutTokenReturns401() throws Exception {
         mockMvc.perform(post("/api/auth/logout")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutRequiresRefreshTokenRequest() throws Exception {
+        String accessToken = login("admin@test.local", "AdminPassword123!");
+
+        mockMvc.perform(auth(post("/api/auth/logout"), accessToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refreshTokenIsHashedRotatedExpiresAndRevokedOnLogout() throws Exception {
+        String loginBody = mockMvc.perform(json(post("/api/auth/login"),
+                        "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andReturn().getResponse().getContentAsString();
+        String accessToken = JsonPath.read(loginBody, "$.accessToken");
+        String refreshToken = JsonPath.read(loginBody, "$.refreshToken");
+        String refreshHash = sha256(refreshToken);
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(refreshHash).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(storedToken.getTokenHash())
+                .isNotEqualTo(refreshToken)
+                .hasSize(64);
+
+        String refreshedBody = mockMvc.perform(json(post("/api/auth/refresh"),
+                        "{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String replacementRefreshToken = JsonPath.read(refreshedBody, "$.refreshToken");
+        String replacementAccessToken = JsonPath.read(refreshedBody, "$.accessToken");
+        org.assertj.core.api.Assertions.assertThat(replacementRefreshToken).isNotEqualTo(refreshToken);
+        org.assertj.core.api.Assertions.assertThat(replacementAccessToken).isNotEqualTo(accessToken);
+
+        mockMvc.perform(json(post("/api/auth/refresh"),
+                        "{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(auth(json(post("/api/auth/logout"),
+                        "{\"refreshToken\":\"" + replacementRefreshToken + "\"}"),
+                        replacementAccessToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(json(post("/api/auth/refresh"),
+                        "{\"refreshToken\":\"" + replacementRefreshToken + "\"}"))
+                .andExpect(status().isUnauthorized());
+
+        String expiringLogin = mockMvc.perform(json(post("/api/auth/login"),
+                        "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String expiringToken = JsonPath.read(expiringLogin, "$.refreshToken");
+        RefreshToken expiringEntity = refreshTokenRepository.findByTokenHash(sha256(expiringToken)).orElseThrow();
+        expiringEntity.setExpiresAt(Instant.now().minusSeconds(1));
+        refreshTokenRepository.save(expiringEntity);
+        mockMvc.perform(json(post("/api/auth/refresh"),
+                        "{\"refreshToken\":\"" + expiringToken + "\"}"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -205,6 +284,11 @@ class ApiIntegrationTest {
 
     private static long idOf(String json) {
         return ((Number) JsonPath.read(json, "$.id")).longValue();
+    }
+
+    private static String sha256(String value) throws Exception {
+        return HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     }
 
     private static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder request, String body) {

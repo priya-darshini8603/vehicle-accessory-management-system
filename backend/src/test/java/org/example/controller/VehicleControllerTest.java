@@ -8,7 +8,6 @@ import org.example.exception.ResourceNotFoundException;
 import org.example.service.JwtService;
 import org.example.security.RestAccessDeniedHandler;
 import org.example.security.RestAuthenticationEntryPoint;
-import org.example.security.RevokedTokenService;
 import org.example.service.VehicleService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(VehicleController.class)
-@Import({SecurityConfig.class, RestAuthenticationEntryPoint.class, RestAccessDeniedHandler.class, RevokedTokenService.class})
+@Import({SecurityConfig.class, RestAuthenticationEntryPoint.class, RestAccessDeniedHandler.class})
 class VehicleControllerTest {
 
     private static final String VALID_BODY = """

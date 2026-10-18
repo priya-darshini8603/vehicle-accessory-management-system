@@ -66,7 +66,7 @@ public class AccessoryServiceImpl implements AccessoryService {
     @Transactional
     public void deleteAccessory(Long id) {
         if (!accessoryRepository.existsById(id)) {
-            log.warn("Accessory with id {} was not found", id);
+            log.warn("Accessory with the id {} was not found", id);
             throw ResourceNotFoundException.of("Accessory", id);
         }
         accessoryRepository.deleteVehicleMappings(id);

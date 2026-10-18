@@ -52,7 +52,7 @@ public class AccessoryController {
         return ResponseEntity.ok(accessoryService.getAccessories(pageable));
     }
 
-    // Gets one accessory by Id.
+    // Gets one accessory by id.
     @GetMapping("/{id}")
     public ResponseEntity<AccessoryResponse> getAccessoryById(@PathVariable Long id) {
         log.debug("Received request to retrieve accessory with id {}", id);
