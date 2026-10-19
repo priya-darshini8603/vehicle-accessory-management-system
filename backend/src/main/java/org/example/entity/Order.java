@@ -61,9 +61,6 @@ public class Order {
     @Column(name = "idempotency_key", nullable = false, length = 128)
     private String idempotencyKey;
 
-    @Column(name = "request_fingerprint", nullable = false, length = 64)
-    private String requestFingerprint;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrderStatus status;

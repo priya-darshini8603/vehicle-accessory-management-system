@@ -10,14 +10,15 @@ public record StockMovementRequest(
         @NotNull Integer quantityDelta,
         @Size(max = 500) String note
 ) {
-    @AssertTrue(message = "Sales must decrease stock; purchases and returns must increase stock; adjustments must be non-zero")
+    @AssertTrue(message = "SALE quantities must be negative, RESTORATION quantities must be positive, "
+            + "and ADJUSTMENT quantities must be non-zero")
     public boolean isValidMovement() {
         if (type == null || quantityDelta == null) {
             return true;
         }
         return switch (type) {
             case SALE -> quantityDelta < 0;
-            case PURCHASE, RETURN -> quantityDelta > 0;
+            case RESTORATION -> quantityDelta > 0;
             case ADJUSTMENT -> quantityDelta != 0;
         };
     }

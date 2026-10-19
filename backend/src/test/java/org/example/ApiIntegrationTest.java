@@ -161,7 +161,8 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.id").value(orderId));
         mockMvc.perform(auth(json(post("/api/orders"), orderRequest.replace("\"quantity\":2", "\"quantity\":1"))
                         .header("Idempotency-Key", "order-" + suffix), customerToken))
-                .andExpect(status().isConflict());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(orderId));
 
         mockMvc.perform(auth(get("/api/admin/accessories/{id}", firstAccessory), adminToken))
                 .andExpect(status().isOk())
@@ -212,7 +213,7 @@ class ApiIntegrationTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", firstAccessory), adminToken))
                 .andExpect(jsonPath("$.totalElements").value(3))
-                .andExpect(jsonPath("$.content[0].type").value("RETURN"));
+                .andExpect(jsonPath("$.content[0].type").value("RESTORATION"));
     }
 
     @Test
@@ -319,30 +320,52 @@ class ApiIntegrationTest {
         mockMvc.perform(auth(json(post("/api/admin/inventory/accessories/{id}/movements", accessoryId), """
                         {"type":"SALE","quantityDelta":-3,"note":"Order 101"}
                         """), adminToken))
+                .andExpect(status().isUnprocessableContent());
+        mockMvc.perform(auth(json(post("/api/admin/inventory/accessories/{id}/movements", accessoryId), """
+                        {"type":"ADJUSTMENT","quantityDelta":-3,"note":"Physical count"}
+                        """), adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.stockBefore").value(4))
                 .andExpect(jsonPath("$.stockAfter").value(1));
         mockMvc.perform(auth(json(post("/api/admin/inventory/accessories/{id}/movements", accessoryId), """
-                        {"type":"PURCHASE","quantityDelta":1,"note":"Receipt 205"}
+                        {"type":"RESTORATION","quantityDelta":1,"note":"Order 205"}
                         """), adminToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.stockAfter").value(2));
+                .andExpect(status().isUnprocessableContent());
 
         mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", accessoryId), adminToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(3));
+                .andExpect(jsonPath("$.totalElements").value(2));
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", accessoryId)
+                        .param("type", "ADJUSTMENT"), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", accessoryId)
+                        .param("type", "SALE"), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", accessoryId)
+                        .param("type", "UNKNOWN"), adminToken))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", accessoryId)
+                        .param("from", "2999-01-01T00:00:00Z"), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", accessoryId)
+                        .param("from", "2026-10-20T00:00:00Z")
+                        .param("to", "2026-10-19T00:00:00Z"), adminToken))
+                .andExpect(status().isUnprocessableContent());
         mockMvc.perform(auth(get("/api/admin/inventory/report").param("days", "30"), adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lowStockItems[0].accessoryId").value(accessoryId))
-                .andExpect(jsonPath("$.lowStockItems[0].currentStock").value(2))
-                .andExpect(jsonPath("$.lowStockItems[0].unitsSold").value(3))
-                .andExpect(jsonPath("$.lowStockItems[0].averageDailySales").value(0.1))
-                .andExpect(jsonPath("$.lowStockItems[0].leadTimeDemand").value(3.0))
-                .andExpect(jsonPath("$.lowStockItems[0].reorderPoint").value(6.0))
-                .andExpect(jsonPath("$.lowStockItems[0].stockCoverDays").value(20.0))
+                .andExpect(jsonPath("$.lowStockItems[0].currentStock").value(1))
+                .andExpect(jsonPath("$.lowStockItems[0].unitsSold").value(0))
+                .andExpect(jsonPath("$.lowStockItems[0].averageDailySales").value(0.0))
+                .andExpect(jsonPath("$.lowStockItems[0].leadTimeDemand").value(0.0))
+                .andExpect(jsonPath("$.lowStockItems[0].reorderPoint").value(3.0))
+                .andExpect(jsonPath("$.lowStockItems[0].stockCoverDays").doesNotExist())
                 .andExpect(jsonPath("$.lowStockItems[0].lowStock").value(true))
                 .andExpect(jsonPath("$.lowStockItems[0].outOfStock").value(false))
-                .andExpect(jsonPath("$.lowStockItems[0].recommendedReorderQuantity").value(4))
+                .andExpect(jsonPath("$.lowStockItems[0].recommendedReorderQuantity").value(2))
                 .andExpect(jsonPath("$.recentMovements[0].type").exists());
 
         mockMvc.perform(auth(json(post("/api/admin/inventory/accessories/{id}/movements", accessoryId), """
@@ -353,7 +376,7 @@ class ApiIntegrationTest {
                         {"type":"ADJUSTMENT","quantityDelta":1,"note":"Cycle count correction"}
                         """), adminToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.stockAfter").value(3));
+                .andExpect(jsonPath("$.stockAfter").value(2));
     }
 
     @Test

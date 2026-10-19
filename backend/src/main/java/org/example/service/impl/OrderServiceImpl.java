@@ -17,6 +17,7 @@ import org.example.enums.StockMovementType;
 import org.example.exception.BusinessRuleException;
 import org.example.exception.DuplicateResourceException;
 import org.example.exception.ResourceNotFoundException;
+import org.example.mapper.InventoryMapper;
 import org.example.mapper.OrderMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.OrderItemRepository;
@@ -30,11 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -52,6 +49,7 @@ public class OrderServiceImpl implements OrderService {
     private final StockMovementRepository stockMovementRepository;
     private final PricingService pricingService;
     private final OrderMapper orderMapper;
+    private final InventoryMapper inventoryMapper;
 
     @Override
     @Transactional
@@ -60,15 +58,11 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessRuleException("A non-blank Idempotency-Key of at most 128 characters is required");
         }
         Map<Long, Integer> quantities = mergeQuantities(request);
-        String fingerprint = fingerprint(quantities, request.couponCode());
         User customer = userRepository.findByEmailForUpdate(customerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated customer no longer exists"));
 
         var prior = orderRepository.findByCustomerIdAndIdempotencyKey(customer.getId(), idempotencyKey.trim());
         if (prior.isPresent()) {
-            if (!prior.get().getRequestFingerprint().equals(fingerprint)) {
-                throw new DuplicateResourceException("Idempotency key was already used for a different order request");
-            }
             return orderMapper.toResponse(prior.get());
         }
 
@@ -99,7 +93,6 @@ public class OrderServiceImpl implements OrderService {
         order.setOrderNumber("ORD-" + java.util.UUID.randomUUID());
         order.setCustomer(customer);
         order.setIdempotencyKey(idempotencyKey.trim());
-        order.setRequestFingerprint(fingerprint);
         order.setStatus(OrderStatus.CONFIRMED);
         order.setInventoryProcessingStatus(InventoryProcessingStatus.DEDUCTED);
         order.setSubtotal(priced.subtotal());
@@ -114,11 +107,11 @@ public class OrderServiceImpl implements OrderService {
             OrderItem orderItem = orderMapper.toItem(order, accessory, price, item.getValue());
             order.getItems().add(orderItem);
 
-            int before = accessory.getStockQuantity() == null ? 0 : accessory.getStockQuantity();
+            int before = requireNonnegativeStock(accessory);
             int after = before - item.getValue();
             accessory.setStockQuantity(after);
-            movements.add(createMovement(accessory, -item.getValue(), before, after,
-                    "Order " + order.getOrderNumber(), customerEmail));
+            movements.add(inventoryMapper.toMovement(accessory, StockMovementType.SALE, -item.getValue(),
+                    before, after, "Order " + order.getOrderNumber(), customerEmail));
         }
 
         Order saved = orderRepository.save(order);
@@ -168,15 +161,15 @@ public class OrderServiceImpl implements OrderService {
                 throw new ResourceNotFoundException("Accessory " + item.getAccessory().getId()
                         + " for this order no longer exists");
             }
-            int before = accessory.getStockQuantity() == null ? 0 : accessory.getStockQuantity();
+            int before = requireNonnegativeStock(accessory);
             long afterLong = (long) before + item.getQuantity();
             if (afterLong > Integer.MAX_VALUE) {
                 throw new BusinessRuleException("Restored stock exceeds the supported maximum");
             }
             int after = (int) afterLong;
             accessory.setStockQuantity(after);
-            movements.add(createMovement(accessory, item.getQuantity(), before, after,
-                    "Cancellation of order " + order.getOrderNumber(), customerEmail));
+            movements.add(inventoryMapper.toMovement(accessory, StockMovementType.RESTORATION, item.getQuantity(),
+                    before, after, "Cancellation of order " + order.getOrderNumber(), customerEmail));
         }
 
         order.setStatus(OrderStatus.CANCELLED);
@@ -205,30 +198,13 @@ public class OrderServiceImpl implements OrderService {
         return quantities;
     }
 
-    private static String fingerprint(Map<Long, Integer> quantities, String couponCode) {
-        String canonical = quantities.entrySet().stream()
-                .map(entry -> entry.getKey() + ":" + entry.getValue())
-                .collect(Collectors.joining(","))
-                + "|coupon:" + (couponCode == null ? "" : couponCode.trim().toUpperCase(java.util.Locale.ROOT));
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(canonical.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
+    private static int requireNonnegativeStock(Accessory accessory) {
+        Integer stock = accessory.getStockQuantity();
+        if (stock == null || stock < 0) {
+            throw new IllegalStateException("Accessory " + accessory.getId()
+                    + " has an invalid stock quantity");
         }
-    }
-
-    private static StockMovement createMovement(Accessory accessory, int delta, int before, int after,
-                                                String note, String actor) {
-        StockMovement movement = new StockMovement();
-        movement.setAccessory(accessory);
-        movement.setType(delta < 0 ? StockMovementType.SALE : StockMovementType.RETURN);
-        movement.setQuantityDelta(delta);
-        movement.setStockBefore(before);
-        movement.setStockAfter(after);
-        movement.setNote(note);
-        movement.setChangedBy(actor);
-        return movement;
+        return stock;
     }
 
 }

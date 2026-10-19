@@ -45,30 +45,43 @@ class InventoryServiceImplTest {
     }
 
     @Test
-    void receiptReturnAndAdjustmentRequireAReason() {
+    void adjustmentRequiresAReason() {
         assertThatThrownBy(() -> service.recordMovement(1L,
-                new StockMovementRequest(StockMovementType.PURCHASE, 2, "  "), "admin@test.local"))
+                new StockMovementRequest(StockMovementType.ADJUSTMENT, 2, "  "), "admin@test.local"))
                 .isInstanceOf(BusinessRuleException.class)
-                .hasMessage("A reason is required for receipts, returns, and stock adjustments");
+                .hasMessage("A reason is required for stock adjustments");
 
         verify(stockMovementRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void saleLocksAccessoryUpdatesStockAndRecordsBeforeAndAfterQuantities() {
+    void adjustmentLocksAccessoryUpdatesStockAndRecordsBeforeAndAfterQuantities() {
         Accessory accessory = accessory(1L, 8, 2, 5);
         when(accessoryRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(accessory));
         when(stockMovementRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = service.recordMovement(1L,
-                new StockMovementRequest(StockMovementType.SALE, -3, "Order 17"), "admin@test.local");
+                new StockMovementRequest(StockMovementType.ADJUSTMENT, -3, "Physical count"), "admin@test.local");
 
         assertThat(accessory.getStockQuantity()).isEqualTo(5);
-        assertThat(response.type()).isEqualTo(StockMovementType.SALE);
+        assertThat(response.type()).isEqualTo(StockMovementType.ADJUSTMENT);
         assertThat(response.quantityDelta()).isEqualTo(-3);
         assertThat(response.stockBefore()).isEqualTo(8);
         assertThat(response.stockAfter()).isEqualTo(5);
         assertThat(response.changedBy()).isEqualTo("admin@test.local");
+    }
+
+    @Test
+    void directSaleOrRestorationMovementIsRejected() {
+        assertThatThrownBy(() -> service.recordMovement(1L,
+                new StockMovementRequest(StockMovementType.SALE, -1, "Order 17"), "admin@test.local"))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("Only inventory adjustments can be recorded directly");
+        assertThatThrownBy(() -> service.recordMovement(1L,
+                new StockMovementRequest(StockMovementType.RESTORATION, 1, "Order 17"), "admin@test.local"))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("Only inventory adjustments can be recorded directly");
+        verify(accessoryRepository, never()).findByIdForUpdate(any());
     }
 
     @Test
@@ -77,7 +90,7 @@ class InventoryServiceImplTest {
         when(accessoryRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(accessory));
 
         assertThatThrownBy(() -> service.recordMovement(1L,
-                new StockMovementRequest(StockMovementType.SALE, -3, null), "admin@test.local"))
+                new StockMovementRequest(StockMovementType.ADJUSTMENT, -3, "Physical count"), "admin@test.local"))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessage("Stock cannot become negative");
 

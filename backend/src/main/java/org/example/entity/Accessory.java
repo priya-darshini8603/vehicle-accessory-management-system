@@ -64,6 +64,7 @@ public class Accessory {
     @Column(length = 1000)
     private String description;
 
+    @Column(name = "stock_quantity", nullable = false, columnDefinition = "integer default 0")
     private Integer stockQuantity = 0;
 
     @Column(name = "min_stock_threshold", nullable = false, columnDefinition = "integer default 0")

@@ -87,7 +87,7 @@ Refresh tokens are opaque and stored only as SHA-256 hashes. They are checked fo
 ### Inventory (ADMIN)
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/api/admin/inventory/accessories/{id}/movements` | `{type, quantityDelta, note}` records a movement and updates stock atomically. SALE deltas are negative; PURCHASE and RETURN are positive; ADJUSTMENT accepts either sign. A reason is required for receipts, returns and adjustments. Record a supplier receipt only after delivery verification and a return only after resaleability verification. |
+| POST | `/api/admin/inventory/accessories/{id}/movements` | `{type, quantityDelta, note}` records a non-zero ADJUSTMENT and updates stock atomically; a reason is required. The only valid types are SALE (negative delta), RESTORATION (positive delta), and ADJUSTMENT (either sign, but non-zero). SALE movements are created by orders; RESTORATION movements are created when an order is cancelled. |
 | GET | `/api/admin/inventory/accessories/{id}/movements?page=0&size=20` | Paged stock ledger, newest first, including stock before/after and actor. |
 | GET | `/api/admin/inventory/report?days=30` | Stock dashboard, lead-time demand, reorder points, stock cover, low/out-of-stock lists, replenishment suggestions, fast/slow movers, and the latest movements for a 1–365 day sales window. |
 

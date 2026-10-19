@@ -4,6 +4,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
+import org.example.enums.StockMovementType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -94,6 +95,21 @@ class DtoValidationTest {
         assertThat(violatedFields(validator.validate(new AccessoryMappingRequest(null))))
                 .containsExactly("accessoryIds");
         assertThat(validator.validate(new AccessoryMappingRequest(ids))).hasSize(2);
+    }
+
+    @Test
+    void stockMovementTypesAndDeltasAreRestrictedToSupportedDirections() {
+        assertThat(StockMovementType.values()).containsExactly(
+                StockMovementType.SALE, StockMovementType.RESTORATION, StockMovementType.ADJUSTMENT);
+
+        assertThat(validator.validate(new StockMovementRequest(StockMovementType.SALE, -1, null))).isEmpty();
+        assertThat(validator.validate(new StockMovementRequest(StockMovementType.RESTORATION, 1, null))).isEmpty();
+        assertThat(validator.validate(new StockMovementRequest(StockMovementType.ADJUSTMENT, -1, null))).isEmpty();
+        assertThat(validator.validate(new StockMovementRequest(StockMovementType.ADJUSTMENT, 1, null))).isEmpty();
+
+        assertThat(validator.validate(new StockMovementRequest(StockMovementType.SALE, 1, null))).hasSize(1);
+        assertThat(validator.validate(new StockMovementRequest(StockMovementType.RESTORATION, -1, null))).hasSize(1);
+        assertThat(validator.validate(new StockMovementRequest(StockMovementType.ADJUSTMENT, 0, null))).hasSize(1);
     }
 
     private static Set<String> violatedFields(Set<? extends ConstraintViolation<?>> violations) {

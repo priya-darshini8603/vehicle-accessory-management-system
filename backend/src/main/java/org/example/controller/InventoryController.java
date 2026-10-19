@@ -8,8 +8,10 @@ import org.example.dto.InventoryReport;
 import org.example.dto.PageResponse;
 import org.example.dto.StockMovementRequest;
 import org.example.dto.StockMovementResponse;
+import org.example.enums.StockMovementType;
 import org.example.service.InventoryService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/admin/inventory")
@@ -44,8 +48,12 @@ public class InventoryController {
     @GetMapping("/accessories/{accessoryId}/movements")
     public ResponseEntity<PageResponse<StockMovementResponse>> getMovementHistory(
             @PathVariable Long accessoryId,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(inventoryService.getMovementHistory(accessoryId, pageable));
+            @RequestParam(required = false) StockMovementType type,
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to,
+            @PageableDefault(size = 20, sort = {"occurredAt", "id"},
+                    direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(inventoryService.getMovementHistory(accessoryId, type, from, to, pageable));
     }
 
     @GetMapping("/report")

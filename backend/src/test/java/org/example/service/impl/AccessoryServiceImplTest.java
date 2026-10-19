@@ -6,6 +6,7 @@ import org.example.entity.Accessory;
 import org.example.entity.PriceChange;
 import org.example.exception.ResourceNotFoundException;
 import org.example.mapper.AccessoryMapper;
+import org.example.mapper.InventoryMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.DiscountRepository;
 import org.example.repository.PriceChangeRepository;
@@ -49,7 +50,7 @@ class AccessoryServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new AccessoryServiceImpl(accessoryRepository, new AccessoryMapper(),
+        service = new AccessoryServiceImpl(accessoryRepository, new AccessoryMapper(), new InventoryMapper(),
                 discountRepository, priceChangeRepository, stockMovementRepository);
     }
 
@@ -90,6 +91,16 @@ class AccessoryServiceImplTest {
 
         assertThat(existing.getStockQuantity()).isEqualTo(5);
         verify(stockMovementRepository, never()).save(any());
+    }
+
+    @Test
+    void negativeStockIsRejectedByTheService() {
+        assertThatThrownBy(() -> service.updateAccessory(1L, new AccessoryRequest(
+                "Mats", "Interior", new BigDecimal("1000.00"), null, -1), "admin@test.local"))
+                .isInstanceOf(org.example.exception.BusinessRuleException.class)
+                .hasMessage("Stock cannot become negative");
+
+        verify(accessoryRepository, never()).findByIdForUpdate(1L);
     }
 
     @Test

@@ -12,6 +12,7 @@ import org.example.enums.StockMovementType;
 import org.example.exception.BusinessRuleException;
 import org.example.exception.ResourceNotFoundException;
 import org.example.mapper.AccessoryMapper;
+import org.example.mapper.InventoryMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.DiscountRepository;
 import org.example.repository.PriceChangeRepository;
@@ -33,6 +34,7 @@ public class AccessoryServiceImpl implements AccessoryService {
     // Saves and reads accessory records.
     private final AccessoryRepository accessoryRepository;
     private final AccessoryMapper accessoryMapper;
+    private final InventoryMapper inventoryMapper;
     private final DiscountRepository discountRepository;
     private final PriceChangeRepository priceChangeRepository;
     private final StockMovementRepository stockMovementRepository;
@@ -40,10 +42,11 @@ public class AccessoryServiceImpl implements AccessoryService {
     @Override
     @Transactional
     public AccessoryResponse createAccessory(AccessoryRequest request, String actingUserEmail) {
+        validateRequestedStock(request);
         Accessory savedAccessory = accessoryRepository.save(accessoryMapper.toEntity(request));
-        int initialStock = savedAccessory.getStockQuantity() == null ? 0 : savedAccessory.getStockQuantity();
+        int initialStock = requireNonnegativeStock(savedAccessory);
         if (initialStock > 0) {
-            stockMovementRepository.save(InventoryServiceImpl.createMovement(savedAccessory,
+            stockMovementRepository.save(inventoryMapper.toMovement(savedAccessory,
                     StockMovementType.ADJUSTMENT, initialStock, 0, initialStock, "Initial stock", actingUserEmail));
         }
         recordPriceChange(savedAccessory.getId(), null, null, savedAccessory, actingUserEmail);
@@ -70,19 +73,20 @@ public class AccessoryServiceImpl implements AccessoryService {
     @Override
     @Transactional
     public AccessoryResponse updateAccessory(Long id, AccessoryRequest request, String actingUserEmail) {
+        validateRequestedStock(request);
         Accessory existing = accessoryRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("Accessory", id));
         BigDecimal oldPrice = existing.getPrice();
         BigDecimal oldCostPrice = existing.getCostPrice();
-        int oldStock = existing.getStockQuantity() == null ? 0 : existing.getStockQuantity();
+        int oldStock = requireNonnegativeStock(existing);
         if (request.stockQuantity() != null && request.stockQuantity() != oldStock
                 && (request.stockAdjustmentReason() == null || request.stockAdjustmentReason().isBlank())) {
             throw new BusinessRuleException("A reason is required when adjusting stock");
         }
         accessoryMapper.updateEntity(existing, request);
-        int newStock = existing.getStockQuantity() == null ? 0 : existing.getStockQuantity();
+        int newStock = requireNonnegativeStock(existing);
         if (oldStock != newStock) {
-            stockMovementRepository.save(InventoryServiceImpl.createMovement(existing,
+            stockMovementRepository.save(inventoryMapper.toMovement(existing,
                     StockMovementType.ADJUSTMENT, newStock - oldStock, oldStock, newStock,
                     request.stockAdjustmentReason(), actingUserEmail));
         }
@@ -97,9 +101,7 @@ public class AccessoryServiceImpl implements AccessoryService {
         return accessoryMapper.toResponse(existing);
     }
 
-    /**
-     * Deletes the accessory after removing it from every vehicle it is mapped to.
-     */
+    //Deletes the accessory after removing it from every vehicle it is mapped to.
     @Override
     @Transactional
     public void deleteAccessory(Long id) {
@@ -147,6 +149,24 @@ public class AccessoryServiceImpl implements AccessoryService {
         change.setNewCostPrice(updated.getCostPrice());
         change.setChangedBy(actingUserEmail);
         priceChangeRepository.save(change);
+    }
+
+    private static void validateRequestedStock(AccessoryRequest request) {
+        if (request == null) {
+            throw new BusinessRuleException("Accessory request is required");
+        }
+        if (request.stockQuantity() != null && request.stockQuantity() < 0) {
+            throw new BusinessRuleException("Stock cannot become negative");
+        }
+    }
+
+    private static int requireNonnegativeStock(Accessory accessory) {
+        Integer stock = accessory.getStockQuantity();
+        if (stock == null || stock < 0) {
+            throw new IllegalStateException("Accessory " + accessory.getId()
+                    + " has an invalid stock quantity");
+        }
+        return stock;
     }
 
     // 1499.0 and 1499.00 are the same price; BigDecimal.equals would say otherwise.

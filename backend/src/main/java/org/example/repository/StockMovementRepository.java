@@ -15,7 +15,18 @@ import java.util.List;
 public interface StockMovementRepository extends JpaRepository<StockMovement, Long> {
 
     @EntityGraph(attributePaths = "accessory")
-    Page<StockMovement> findByAccessoryIdOrderByOccurredAtDescIdDesc(Long accessoryId, Pageable pageable);
+    @Query("""
+            select m from StockMovement m
+            where m.accessory.id = :accessoryId
+              and (:type is null or m.type = :type)
+              and (:from is null or m.occurredAt >= :from)
+              and (:to is null or m.occurredAt <= :to)
+            """)
+    Page<StockMovement> findHistory(@Param("accessoryId") Long accessoryId,
+                                    @Param("type") StockMovementType type,
+                                    @Param("from") Instant from,
+                                    @Param("to") Instant to,
+                                    Pageable pageable);
 
     @EntityGraph(attributePaths = "accessory")
     List<StockMovement> findTop20ByOrderByOccurredAtDescIdDesc();
