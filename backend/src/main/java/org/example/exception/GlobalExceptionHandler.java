@@ -43,6 +43,9 @@ public class GlobalExceptionHandler {
         }
         ex.getBindingResult().getGlobalErrors()
                 .forEach(error -> fieldErrors.put(error.getObjectName(), messageOf(error.getDefaultMessage())));
+        if (fieldErrors.getOrDefault("refreshToken", "").contains("Refresh token is required")) {
+            return build(HttpStatus.BAD_REQUEST, "Refresh token is required", request, fieldErrors);
+        }
         return build(HttpStatus.BAD_REQUEST, "Validation failed", request, fieldErrors);
     }
 
@@ -107,6 +110,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(
             InvalidRefreshTokenException ex, HttpServletRequest request) {
         return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(RefreshTokenOwnershipException.class)
+    public ResponseEntity<ErrorResponse> handleRefreshTokenOwnership(
+            RefreshTokenOwnershipException ex, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
     // Safety net for races the service-level duplicate checks cannot catch (two concurrent inserts).

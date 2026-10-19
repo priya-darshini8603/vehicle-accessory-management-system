@@ -44,11 +44,22 @@ public record AccessoryRequest(
         @DecimalMin(value = "0.00", message = "Tax rate must not be negative")
         @DecimalMax(value = "100.00", message = "Tax rate must not exceed 100")
         @Digits(integer = 3, fraction = 2, message = "Tax rate must have at most 2 decimals")
-        BigDecimal taxRate
+        BigDecimal taxRate,
+
+        @PositiveOrZero(message = "Minimum stock threshold must not be negative")
+        Integer minStockThreshold,
+
+        @PositiveOrZero(message = "Lead time must not be negative")
+        Integer leadTimeDays
 ) {
     // Keeps existing callers (and clients) that don't send cost or tax working.
     public AccessoryRequest(String name, String category, BigDecimal price, String description, Integer stockQuantity) {
-        this(name, category, price, description, stockQuantity, null, null);
+        this(name, category, price, description, stockQuantity, null, null, null, null);
+    }
+
+    public AccessoryRequest(String name, String category, BigDecimal price, String description, Integer stockQuantity,
+                            BigDecimal costPrice, BigDecimal taxRate) {
+        this(name, category, price, description, stockQuantity, costPrice, taxRate, null, null);
     }
 
     public AccessoryRequest {

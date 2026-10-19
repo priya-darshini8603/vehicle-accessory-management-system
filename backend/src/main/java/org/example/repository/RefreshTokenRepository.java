@@ -3,7 +3,9 @@ package org.example.repository;
 import java.time.Instant;
 import java.util.Optional;
 import org.example.entity.RefreshToken;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +13,10 @@ import org.springframework.data.repository.query.Param;
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select token from RefreshToken token where token.tokenHash = :tokenHash")
+    Optional<RefreshToken> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
 
     @Modifying
     @Query("""
@@ -30,12 +36,13 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             update RefreshToken token
             set token.revokedAt = :now
             where token.tokenHash = :tokenHash
-              and token.user.email = :email
+              and token.user.id = :userId
               and token.revokedAt is null
+              and token.expiresAt > :now
             """)
-    int revokeForUser(
+    int revokeIfActiveForUser(
             @Param("tokenHash") String tokenHash,
-            @Param("email") String email,
+            @Param("userId") Long userId,
             @Param("now") Instant now
     );
 }

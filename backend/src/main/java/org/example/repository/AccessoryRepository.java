@@ -3,15 +3,22 @@ package org.example.repository;
 import org.example.entity.Accessory;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import jakarta.persistence.LockModeType;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AccessoryRepository extends JpaRepository<Accessory, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Accessory a WHERE a.id = :accessoryId")
+    Optional<Accessory> findByIdForUpdate(@Param("accessoryId") Long accessoryId);
 
     @Query("SELECT COUNT(v) > 0 FROM Vehicle v JOIN v.accessories a WHERE a.id = :accessoryId")
     boolean isAccessoryAssignedToVehicle(@Param("accessoryId") Long accessoryId);

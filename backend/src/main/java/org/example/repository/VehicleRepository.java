@@ -31,6 +31,15 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
             """)
     Optional<Vehicle> findByVehicleNumberWithAccessories(@Param("vehicleNumber") String vehicleNumber);
 
+    // Model search fetches mapped accessories in the same query; '!' is the LIKE escape character.
+    @Query("""
+         SELECT DISTINCT v FROM Vehicle v
+         LEFT JOIN FETCH v.accessories
+         WHERE LOWER(v.model) LIKE LOWER(:modelNamePattern) ESCAPE '!' 
+         """)
+    List<Vehicle> findByModelNamePatternWithAccessories(@Param("modelNamePattern") String modelNamePattern);
+
+
     // Single vehicle with its accessories loaded eagerly for detail/mapping responses.
     @EntityGraph(attributePaths = "accessories")
     @Query("SELECT v FROM Vehicle v WHERE v.id = :id")

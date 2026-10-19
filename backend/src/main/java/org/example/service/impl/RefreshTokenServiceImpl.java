@@ -6,7 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.entity.RefreshToken;
 import org.example.entity.User;
+import org.example.exception.DuplicateResourceException;
 import org.example.exception.InvalidRefreshTokenException;
+import org.example.exception.RefreshTokenOwnershipException;
+import org.example.exception.ResourceNotFoundException;
 import org.example.repository.RefreshTokenRepository;
 import org.example.security.TokenUtils;
 import org.example.service.RefreshTokenService;
@@ -77,8 +80,25 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Override
     @Transactional
     public void revoke(String rawToken, String email) {
-        int revokedCount = refreshTokenRepository.revokeForUser(
-                TokenUtils.hash(rawToken), email, Instant.now());
-        log.debug("Refresh token revocation matched {} active token(s)", revokedCount);
+        String tokenHash = TokenUtils.hash(rawToken);
+        RefreshToken token = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
+                .orElseThrow(() -> new ResourceNotFoundException("Refresh token not found"));
+
+        if (!token.getUser().getEmail().equalsIgnoreCase(email)) {
+            throw new RefreshTokenOwnershipException();
+        }
+        if (token.getRevokedAt() != null) {
+            throw new DuplicateResourceException("Refresh token already revoked");
+        }
+
+        Instant now = Instant.now();
+        if (!token.getExpiresAt().isAfter(now)) {
+            throw new InvalidRefreshTokenException("Refresh token expired");
+        }
+
+        if (refreshTokenRepository.revokeIfActiveForUser(
+                tokenHash, token.getUser().getId(), now) != 1) {
+            throw new DuplicateResourceException("Refresh token already revoked");
+        }
     }
 }

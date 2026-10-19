@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,6 +62,34 @@ class CompatibilityServiceImplTest {
         assertThatThrownBy(() -> service.findByVehicleNumber(" ka01ab1234"))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Vehicle with number 'KA01AB1234' not found");
+    }
+
+    @Test
+    void modelSearchTrimsEscapesWildcardsAndReturnsOnlyMappedAccessories() {
+        Vehicle vehicle = new Vehicle();
+        vehicle.setId(1L);
+        vehicle.setVehicleNumber("KA01AB1234");
+        vehicle.setMake("Maruti");
+        vehicle.setModel("Swift 100%_!");
+        vehicle.setYear(2022);
+        vehicle.addAccessory(accessory(1L, "Floor Mats", "Interior"));
+        when(vehicleRepository.findByModelNamePatternWithAccessories("%100!%!_!!%"))
+                .thenReturn(List.of(vehicle));
+
+        List<CompatibilityResponse> responses = service.findByModelName(" 100%_! ");
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().vehicle().model()).isEqualTo("Swift 100%_!");
+        assertThat(responses.getFirst().compatibleAccessories())
+                .extracting(a -> a.name())
+                .containsExactly("Floor Mats");
+    }
+
+    @Test
+    void modelSearchReturnsEmptyListWhenThereAreNoMatches() {
+        when(vehicleRepository.findByModelNamePatternWithAccessories("%unknown%")).thenReturn(List.of());
+
+        assertThat(service.findByModelName("unknown")).isEmpty();
     }
 
     private static Accessory accessory(Long id, String name, String category) {

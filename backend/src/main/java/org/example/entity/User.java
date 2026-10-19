@@ -10,7 +10,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-// @Getter/@Setter instead of @Data: Lombok's generated equals/hashCode/toString are unsafe on JPA entities
 @Getter
 @Setter
 @ToString(exclude = "password")
@@ -33,7 +32,7 @@ public class User {
     private String email;
 
     @Column(nullable = false)
-    private String password; // BCrypt hash, never the raw password
+    private String password; // Bcrypt hash, never the raw password
 
     private String phoneNumber;
 

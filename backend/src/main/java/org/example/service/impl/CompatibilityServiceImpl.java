@@ -10,6 +10,9 @@ import org.example.service.CompatibilityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class CompatibilityServiceImpl implements CompatibilityService {
@@ -27,5 +30,25 @@ public class CompatibilityServiceImpl implements CompatibilityService {
                 .map(vehicleMapper::toCompatibilityResponse)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Vehicle with number '" + normalized + "' not found"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CompatibilityResponse> findByModelName(String modelName) {
+        String escapedModelName = modelName.trim()
+                .replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_");
+        String modelNamePattern = "%" + escapedModelName + "%";
+
+        return vehicleRepository.findByModelNamePatternWithAccessories(modelNamePattern).stream()
+                .map(vehicleMapper::toCompatibilityResponse)
+                .sorted(Comparator.comparing(
+                                (CompatibilityResponse response) -> response.vehicle().make(),
+                                String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(response -> response.vehicle().model(), String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(response -> response.vehicle().year())
+                        .thenComparing(response -> response.vehicle().vehicleNumber()))
+                .toList();
     }
 }

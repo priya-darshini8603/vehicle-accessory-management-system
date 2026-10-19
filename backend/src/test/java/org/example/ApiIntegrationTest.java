@@ -156,6 +156,41 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void inventoryMovementsUpdateStockAndDriveTheReport() throws Exception {
+        String adminToken = login("admin@test.local", "AdminPassword123!");
+        long accessoryId = idOf(mockMvc.perform(auth(json(post("/api/admin/accessories"), """
+                        {"name":"Inventory Test Item","category":"Test","price":99.00,
+                         "stockQuantity":4,"minStockThreshold":3,"leadTimeDays":30}
+                        """), adminToken))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.minStockThreshold").value(3))
+                .andExpect(jsonPath("$.leadTimeDays").value(30))
+                .andReturn().getResponse().getContentAsString());
+
+        mockMvc.perform(auth(json(post("/api/admin/inventory/accessories/{id}/movements", accessoryId), """
+                        {"type":"SALE","quantityDelta":-3,"note":"Order 101"}
+                        """), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stockBefore").value(4))
+                .andExpect(jsonPath("$.stockAfter").value(1));
+        mockMvc.perform(auth(json(post("/api/admin/inventory/accessories/{id}/movements", accessoryId), """
+                        {"type":"PURCHASE","quantityDelta":1,"note":"Receipt 205"}
+                        """), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stockAfter").value(2));
+
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", accessoryId), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(3));
+        mockMvc.perform(auth(get("/api/admin/inventory/report").param("days", "30"), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lowStockItems[0].accessoryId").value(accessoryId))
+                .andExpect(jsonPath("$.lowStockItems[0].currentStock").value(2))
+                .andExpect(jsonPath("$.lowStockItems[0].unitsSold").value(3))
+                .andExpect(jsonPath("$.lowStockItems[0].recommendedReorderQuantity").value(1));
+    }
+
+    @Test
     void logoutWithoutTokenReturns401() throws Exception {
         mockMvc.perform(post("/api/auth/logout")).andExpect(status().isUnauthorized());
     }
@@ -164,8 +199,83 @@ class ApiIntegrationTest {
     void logoutRequiresRefreshTokenRequest() throws Exception {
         String accessToken = login("admin@test.local", "AdminPassword123!");
 
-        mockMvc.perform(auth(post("/api/auth/logout"), accessToken))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(auth(json(post("/api/auth/logout"), "{}"), accessToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Refresh token is required"));
+    }
+
+    @Test
+    void logoutRejectsAlreadyRevokedRefreshToken() throws Exception {
+        String loginBody = mockMvc.perform(json(post("/api/auth/login"),
+                        "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String accessToken = JsonPath.read(loginBody, "$.accessToken");
+        String refreshToken = JsonPath.read(loginBody, "$.refreshToken");
+
+        mockMvc.perform(auth(json(post("/api/auth/logout"),
+                        "{\"refreshToken\":\"" + refreshToken + "\"}"), accessToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(auth(json(post("/api/auth/logout"),
+                        "{\"refreshToken\":\"" + refreshToken + "\"}"), accessToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Refresh token already revoked"));
+    }
+
+    @Test
+    void logoutRejectsExpiredRefreshToken() throws Exception {
+        String loginBody = mockMvc.perform(json(post("/api/auth/login"),
+                        "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String accessToken = JsonPath.read(loginBody, "$.accessToken");
+        String refreshToken = JsonPath.read(loginBody, "$.refreshToken");
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(sha256(refreshToken)).orElseThrow();
+        storedToken.setExpiresAt(Instant.now().minusSeconds(1));
+        refreshTokenRepository.save(storedToken);
+
+        mockMvc.perform(auth(json(post("/api/auth/logout"),
+                        "{\"refreshToken\":\"" + refreshToken + "\"}"), accessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Refresh token expired"));
+        org.assertj.core.api.Assertions.assertThat(storedToken.getRevokedAt()).isNull();
+    }
+
+    @Test
+    void logoutRejectsRandomAndNonexistentRefreshTokens() throws Exception {
+        String accessToken = login("admin@test.local", "AdminPassword123!");
+
+        for (String invalidToken : List.of("random-invalid-refresh-token", "unknown-refresh-token")) {
+            mockMvc.perform(auth(json(post("/api/auth/logout"),
+                            "{\"refreshToken\":\"" + invalidToken + "\"}"), accessToken))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.message").value("Refresh token not found"));
+        }
+    }
+
+    @Test
+    void logoutRejectsRefreshTokenOwnedByAnotherUser() throws Exception {
+        mockMvc.perform(json(post("/api/auth/register"), """
+                        {"fullName":"Token Owner","email":"token-owner-check@example.com",
+                         "password":"customer-password"}
+                        """))
+                .andExpect(status().isCreated());
+        String ownerLoginBody = mockMvc.perform(json(post("/api/auth/login"), """
+                        {"email":"token-owner-check@example.com","password":"customer-password"}
+                        """))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String ownerRefreshToken = JsonPath.read(ownerLoginBody, "$.refreshToken");
+        String otherUserAccessToken = login("admin@test.local", "AdminPassword123!");
+
+        mockMvc.perform(auth(json(post("/api/auth/logout"),
+                        "{\"refreshToken\":\"" + ownerRefreshToken + "\"}"), otherUserAccessToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message")
+                        .value("Refresh token does not belong to authenticated user"));
+        RefreshToken storedToken = refreshTokenRepository
+                .findByTokenHash(sha256(ownerRefreshToken)).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(storedToken.getRevokedAt()).isNull();
     }
 
     @Test

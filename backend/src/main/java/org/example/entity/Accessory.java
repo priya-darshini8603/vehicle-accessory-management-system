@@ -27,7 +27,9 @@ import java.util.Set;
         indexes = {
                 // Category drives category-wide discounts and catalog filtering.
                 @Index(name = "idx_accessories_category", columnList = "category"),
-                @Index(name = "idx_accessories_name", columnList = "name")
+                @Index(name = "idx_accessories_name", columnList = "name"),
+                @Index(name = "idx_accessories_stock_quantity", columnList = "stock_quantity"),
+                @Index(name = "idx_accessories_min_stock", columnList = "min_stock_threshold")
         })
 @Getter
 @Setter
@@ -60,7 +62,13 @@ public class Accessory {
     @Column(length = 1000)
     private String description;
 
-    private Integer stockQuantity;
+    private Integer stockQuantity = 0;
+
+    @Column(name = "min_stock_threshold", nullable = false, columnDefinition = "integer default 0")
+    private Integer minStockThreshold = 0;
+
+    @Column(name = "lead_time_days", nullable = false, columnDefinition = "integer default 7")
+    private Integer leadTimeDays = 7;
 
     @ManyToMany(mappedBy = "accessories", fetch = FetchType.LAZY)
     private Set<Vehicle> vehicles = new HashSet<>();

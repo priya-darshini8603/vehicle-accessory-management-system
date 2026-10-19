@@ -8,11 +8,14 @@ import org.example.dto.PageResponse;
 import org.example.dto.PriceChangeResponse;
 import org.example.entity.Accessory;
 import org.example.entity.PriceChange;
+import org.example.enums.StockMovementType;
+import org.example.exception.BusinessRuleException;
 import org.example.exception.ResourceNotFoundException;
 import org.example.mapper.AccessoryMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.DiscountRepository;
 import org.example.repository.PriceChangeRepository;
+import org.example.repository.StockMovementRepository;
 import org.example.service.AccessoryService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,11 +35,17 @@ public class AccessoryServiceImpl implements AccessoryService {
     private final AccessoryMapper accessoryMapper;
     private final DiscountRepository discountRepository;
     private final PriceChangeRepository priceChangeRepository;
+    private final StockMovementRepository stockMovementRepository;
 
     @Override
     @Transactional
     public AccessoryResponse createAccessory(AccessoryRequest request, String actingUserEmail) {
         Accessory savedAccessory = accessoryRepository.save(accessoryMapper.toEntity(request));
+        int initialStock = savedAccessory.getStockQuantity() == null ? 0 : savedAccessory.getStockQuantity();
+        if (initialStock > 0) {
+            stockMovementRepository.save(InventoryServiceImpl.createMovement(savedAccessory,
+                    StockMovementType.ADJUSTMENT, initialStock, 0, initialStock, "Initial stock", actingUserEmail));
+        }
         recordPriceChange(savedAccessory.getId(), null, null, savedAccessory, actingUserEmail);
         log.info("Created accessory with id {}", savedAccessory.getId());
         return accessoryMapper.toResponse(savedAccessory);
@@ -61,10 +70,18 @@ public class AccessoryServiceImpl implements AccessoryService {
     @Override
     @Transactional
     public AccessoryResponse updateAccessory(Long id, AccessoryRequest request, String actingUserEmail) {
-        Accessory existing = findAccessoryById(id);
+        Accessory existing = accessoryRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Accessory", id));
         BigDecimal oldPrice = existing.getPrice();
         BigDecimal oldCostPrice = existing.getCostPrice();
+        int oldStock = existing.getStockQuantity() == null ? 0 : existing.getStockQuantity();
         accessoryMapper.updateEntity(existing, request);
+        int newStock = existing.getStockQuantity() == null ? 0 : existing.getStockQuantity();
+        if (oldStock != newStock) {
+            stockMovementRepository.save(InventoryServiceImpl.createMovement(existing,
+                    StockMovementType.ADJUSTMENT, newStock - oldStock, oldStock, newStock,
+                    "Stock count adjustment", actingUserEmail));
+        }
         if (!sameAmount(oldPrice, existing.getPrice()) || !sameAmount(oldCostPrice, existing.getCostPrice())) {
             recordPriceChange(id, oldPrice, oldCostPrice, existing, actingUserEmail);
             log.info("Price of accessory {} changed from {} to {} by {}", id, oldPrice, existing.getPrice(),
@@ -85,6 +102,9 @@ public class AccessoryServiceImpl implements AccessoryService {
         if (!accessoryRepository.existsById(id)) {
             log.warn("Accessory with the id {} was not found", id);
             throw ResourceNotFoundException.of("Accessory", id);
+        }
+        if (stockMovementRepository.existsByAccessoryId(id)) {
+            throw new BusinessRuleException("Accessory cannot be deleted because it has stock movement history");
         }
         // Discounts aimed only at this accessory would otherwise block the delete (foreign key).
         // The price history is kept on purpose: it has no foreign key.

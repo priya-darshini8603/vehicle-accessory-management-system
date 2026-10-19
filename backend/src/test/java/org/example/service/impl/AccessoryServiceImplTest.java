@@ -9,6 +9,7 @@ import org.example.mapper.AccessoryMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.DiscountRepository;
 import org.example.repository.PriceChangeRepository;
+import org.example.repository.StockMovementRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,12 +42,15 @@ class AccessoryServiceImplTest {
     @Mock
     private PriceChangeRepository priceChangeRepository;
 
+    @Mock
+    private StockMovementRepository stockMovementRepository;
+
     private AccessoryServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new AccessoryServiceImpl(accessoryRepository, new AccessoryMapper(),
-                discountRepository, priceChangeRepository);
+                discountRepository, priceChangeRepository, stockMovementRepository);
     }
 
     @Test
@@ -57,7 +61,7 @@ class AccessoryServiceImplTest {
         existing.setCategory("Old");
         existing.setPrice(BigDecimal.ONE);
         existing.setDescription("old description");
-        when(accessoryRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(accessoryRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
 
         AccessoryResponse response = service.updateAccessory(1L, new AccessoryRequest(
                 "Floor Mats", "Interior", new BigDecimal("1499.00"), "All-weather rubber mats", 25),
@@ -68,13 +72,14 @@ class AccessoryServiceImplTest {
         assertThat(response.price()).isEqualByComparingTo("1499.00");
         assertThat(response.description()).isEqualTo("All-weather rubber mats");
         assertThat(response.stockQuantity()).isEqualTo(25);
+        verify(stockMovementRepository).save(any());
         verify(accessoryRepository).flush();
     }
 
     @Test
     void priceChangeIsRecordedWithOldAndNewValuesAndActor() {
         Accessory existing = accessory(1L, "1000.00", "600.00");
-        when(accessoryRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(accessoryRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
 
         service.updateAccessory(1L, new AccessoryRequest("Mats", "Interior", new BigDecimal("1200.00"),
                 null, null, new BigDecimal("650.00"), null), "admin@test.local");
@@ -93,7 +98,7 @@ class AccessoryServiceImplTest {
     @Test
     void sameAmountWithDifferentScaleIsNotAPriceChange() {
         Accessory existing = accessory(1L, "1000.0", null);
-        when(accessoryRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(accessoryRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
 
         service.updateAccessory(1L, new AccessoryRequest("Renamed", "Interior", new BigDecimal("1000.00"),
                 "new description", null), "admin@test.local");

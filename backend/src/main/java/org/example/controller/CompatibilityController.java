@@ -13,8 +13,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// Accessory compatibility search for customers and admins. Both endpoints return the same body;
-// the vehicle number is matched trimmed and case-insensitively.
+import java.util.List;
+
+// Accessory compatibility search for customers and admins. Vehicle-number lookups are matched
+// trimmed and case-insensitively; model lookups return every matching vehicle.
 @RestController
 @RequestMapping("/api/compatibility")
 @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
@@ -40,5 +42,15 @@ public class CompatibilityController {
             @Size(max = 64, message = "vehicleNumber must not exceed 64 characters")
             String vehicleNumber) {
         return ResponseEntity.ok(compatibilityService.findByVehicleNumber(vehicleNumber));
+    }
+
+    // GET /api/compatibility/models?name=Swift
+    @GetMapping("/models")
+    public ResponseEntity<List<CompatibilityResponse>> searchByModelName(
+            @RequestParam
+            @NotBlank(message = "name must not be blank")
+            @Size(max = 60, message = "name must not exceed 60 characters")
+            String name) {
+        return ResponseEntity.ok(compatibilityService.findByModelName(name));
     }
 }

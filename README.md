@@ -78,11 +78,20 @@ Refresh tokens are opaque and stored only as SHA-256 hashes. They are checked fo
 ### Accessories (ADMIN)
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/api/admin/accessories` | `{name, category, price, description?, stockQuantity?}` → `201` |
+| POST | `/api/admin/accessories` | `{name, category, price, description?, stockQuantity?, minStockThreshold?, leadTimeDays?}` → `201`. Initial stock is audited. |
 | GET | `/api/admin/accessories?page=0&size=20&sort=name,asc` | Paged |
 | GET | `/api/admin/accessories/{id}` | |
-| PUT | `/api/admin/accessories/{id}` | |
-| DELETE | `/api/admin/accessories/{id}` | `204`. Removes the accessory from every vehicle first. |
+| PUT | `/api/admin/accessories/{id}` | Updates catalog data; any supplied stock count is recorded as an audited adjustment. |
+| DELETE | `/api/admin/accessories/{id}` | `204`. Removes the accessory from every vehicle first; products with stock history cannot be deleted. |
+
+### Inventory (ADMIN)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/admin/inventory/accessories/{id}/movements` | `{type, quantityDelta, note?}` records a movement and updates stock atomically. SALE deltas are negative; PURCHASE and RETURN are positive; ADJUSTMENT accepts either sign. |
+| GET | `/api/admin/inventory/accessories/{id}/movements?page=0&size=20` | Paged stock ledger, newest first, including stock before/after and actor. |
+| GET | `/api/admin/inventory/report?days=30` | Stock dashboard, low/out-of-stock lists, reorder suggestions, and fast/slow movers for a 1–365 day sales window. |
+
+`minStockThreshold` and `leadTimeDays` default to 0 and 7. Average daily sales is units sold divided by the requested analysis days; reorder quantity is `max(0, ceil(averageDailySales × leadTimeDays - currentStock))` to round up to whole units. Fast movers are the top quartile by units sold (excluding products without sales); slow movers are the bottom quartile, including products with no sales. A daily report and low/out-of-stock warning logs run at midnight UTC by default; configure `INVENTORY_ANALYSIS_CRON` and `INVENTORY_ANALYSIS_TIME_ZONE` to change this. Order-placement code should record a SALE movement in its transaction through the inventory service/API; this repository does not currently contain an order subsystem.
 
 ### Vehicle ↔ accessory mappings (ADMIN)
 | Method | Path | Notes |

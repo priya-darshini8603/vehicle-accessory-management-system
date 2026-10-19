@@ -18,6 +18,8 @@ public record AccessoryResponse(
         BigDecimal costPrice,
         // GST percent; null means the configured default rate applies
         BigDecimal taxRate,
+        Integer minStockThreshold,
+        Integer leadTimeDays,
         Instant createdAt,
         Instant updatedAt
 ) {}

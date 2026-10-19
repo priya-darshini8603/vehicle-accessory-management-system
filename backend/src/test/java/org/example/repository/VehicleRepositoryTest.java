@@ -83,6 +83,17 @@ class VehicleRepositoryTest {
     }
 
     @Test
+    void findByModelNamePatternWithAccessoriesMatchesCaseInsensitivelyAndLoadsMappings() {
+        List<Vehicle> results = vehicleRepository.findByModelNamePatternWithAccessories("%wi%");
+
+        assertThat(results).hasSize(1);
+        assertThat(Hibernate.isInitialized(results.getFirst().getAccessories())).isTrue();
+        assertThat(results.getFirst().getAccessories())
+                .extracting(Accessory::getName)
+                .containsExactlyInAnyOrder("Floor Mats", "Roof Rack");
+    }
+
+    @Test
     void findByIdWithAccessoriesInitializesCollection() {
         Vehicle v = vehicleRepository.findByIdWithAccessories(swift.getId()).orElseThrow();
         assertThat(Hibernate.isInitialized(v.getAccessories())).isTrue();

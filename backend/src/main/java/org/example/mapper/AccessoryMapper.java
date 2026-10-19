@@ -22,9 +22,17 @@ public class AccessoryMapper {
         accessory.setCategory(request.category());
         accessory.setPrice(request.price());
         accessory.setDescription(request.description());
-        accessory.setStockQuantity(request.stockQuantity());
+        if (request.stockQuantity() != null) {
+            accessory.setStockQuantity(request.stockQuantity());
+        }
         accessory.setCostPrice(request.costPrice());
         accessory.setTaxRate(request.taxRate());
+        if (request.minStockThreshold() != null) {
+            accessory.setMinStockThreshold(request.minStockThreshold());
+        }
+        if (request.leadTimeDays() != null) {
+            accessory.setLeadTimeDays(request.leadTimeDays());
+        }
     }
 
     // Admin view, including the cost price.
@@ -47,6 +55,8 @@ public class AccessoryMapper {
                 accessory.getStockQuantity(),
                 includeCost ? accessory.getCostPrice() : null,
                 accessory.getTaxRate(),
+                accessory.getMinStockThreshold(),
+                accessory.getLeadTimeDays(),
                 accessory.getCreatedAt(),
                 accessory.getUpdatedAt());
     }
