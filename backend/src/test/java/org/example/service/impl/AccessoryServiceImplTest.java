@@ -64,7 +64,8 @@ class AccessoryServiceImplTest {
         when(accessoryRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
 
         AccessoryResponse response = service.updateAccessory(1L, new AccessoryRequest(
-                "Floor Mats", "Interior", new BigDecimal("1499.00"), "All-weather rubber mats", 25),
+                "Floor Mats", "Interior", new BigDecimal("1499.00"), "All-weather rubber mats",
+                25, null, null, null, null, "Physical count"),
                 "admin@test.local");
 
         assertThat(response.name()).isEqualTo("Floor Mats");
@@ -74,6 +75,21 @@ class AccessoryServiceImplTest {
         assertThat(response.stockQuantity()).isEqualTo(25);
         verify(stockMovementRepository).save(any());
         verify(accessoryRepository).flush();
+    }
+
+    @Test
+    void stockUpdateWithoutReasonIsRejected() {
+        Accessory existing = accessory(1L, "1000.00", null);
+        existing.setStockQuantity(5);
+        when(accessoryRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> service.updateAccessory(1L, new AccessoryRequest(
+                "Mats", "Interior", new BigDecimal("1000.00"), null, 8), "admin@test.local"))
+                .isInstanceOf(org.example.exception.BusinessRuleException.class)
+                .hasMessage("A reason is required when adjusting stock");
+
+        assertThat(existing.getStockQuantity()).isEqualTo(5);
+        verify(stockMovementRepository, never()).save(any());
     }
 
     @Test

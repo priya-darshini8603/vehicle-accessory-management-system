@@ -49,9 +49,27 @@ public class PricingServiceImpl implements PricingService {
     @Override
     @Transactional(readOnly = true)
     public QuoteResponse quote(QuoteRequest request, String actingUserEmail, boolean admin) {
-        Instant now = clock.instant();
         Map<Long, Integer> quantities = mergeQuantities(request.items());
         Map<Long, Accessory> accessories = loadAccessories(quantities.keySet());
+        return buildQuote(request, actingUserEmail, admin, quantities, accessories);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QuoteResponse quoteForOrder(QuoteRequest request, String actingUserEmail, boolean admin,
+                                       java.util.Collection<Accessory> loadedAccessories) {
+        Map<Long, Integer> quantities = mergeQuantities(request.items());
+        Map<Long, Accessory> accessories = loadedAccessories.stream()
+                .collect(Collectors.toMap(Accessory::getId, Function.identity()));
+        if (accessories.size() != quantities.size() || !accessories.keySet().containsAll(quantities.keySet())) {
+            throw new BusinessRuleException("The locked accessory set does not match the order items");
+        }
+        return buildQuote(request, actingUserEmail, admin, quantities, accessories);
+    }
+
+    private QuoteResponse buildQuote(QuoteRequest request, String actingUserEmail, boolean admin,
+                                     Map<Long, Integer> quantities, Map<Long, Accessory> accessories) {
+        Instant now = clock.instant();
         Vehicle vehicle = request.vehicleId() == null ? null : loadVehicle(request.vehicleId(), actingUserEmail, admin);
         Set<Long> compatibleIds = vehicle == null ? Set.of()
                 : vehicle.getAccessories().stream().map(Accessory::getId).collect(Collectors.toSet());

@@ -17,6 +17,9 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
     @EntityGraph(attributePaths = "accessory")
     Page<StockMovement> findByAccessoryIdOrderByOccurredAtDescIdDesc(Long accessoryId, Pageable pageable);
 
+    @EntityGraph(attributePaths = "accessory")
+    List<StockMovement> findTop20ByOrderByOccurredAtDescIdDesc();
+
     boolean existsByAccessoryId(Long accessoryId);
 
     @Query("""

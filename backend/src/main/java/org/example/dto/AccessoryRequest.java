@@ -50,22 +50,26 @@ public record AccessoryRequest(
         Integer minStockThreshold,
 
         @PositiveOrZero(message = "Lead time must not be negative")
-        Integer leadTimeDays
+        Integer leadTimeDays,
+
+        @Size(max = 500, message = "Stock adjustment reason must not exceed 500 characters")
+        String stockAdjustmentReason
 ) {
     // Keeps existing callers (and clients) that don't send cost or tax working.
     public AccessoryRequest(String name, String category, BigDecimal price, String description, Integer stockQuantity) {
-        this(name, category, price, description, stockQuantity, null, null, null, null);
+        this(name, category, price, description, stockQuantity, null, null, null, null, null);
     }
 
     public AccessoryRequest(String name, String category, BigDecimal price, String description, Integer stockQuantity,
                             BigDecimal costPrice, BigDecimal taxRate) {
-        this(name, category, price, description, stockQuantity, costPrice, taxRate, null, null);
+        this(name, category, price, description, stockQuantity, costPrice, taxRate, null, null, null);
     }
 
     public AccessoryRequest {
         name = trim(name);
         category = trim(category);
         description = trim(description);
+        stockAdjustmentReason = trim(stockAdjustmentReason);
     }
 
     // Selling below cost is almost always a typo (₹899 instead of ₹8,999); reject it at entry.

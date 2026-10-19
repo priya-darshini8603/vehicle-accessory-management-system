@@ -9,5 +9,10 @@ public record InventoryItemReport(
         int leadTimeDays,
         long unitsSold,
         double averageDailySales,
+        double leadTimeDemand,
+        double reorderPoint,
+        Double stockCoverDays,
+        boolean lowStock,
+        boolean outOfStock,
         int recommendedReorderQuantity
 ) {}

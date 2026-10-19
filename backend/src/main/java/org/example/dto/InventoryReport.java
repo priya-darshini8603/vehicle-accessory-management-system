@@ -10,5 +10,6 @@ public record InventoryReport(
         List<InventoryItemReport> lowStockItems,
         List<InventoryItemReport> outOfStockItems,
         List<InventoryItemReport> fastMovingProducts,
-        List<InventoryItemReport> slowMovingProducts
+        List<InventoryItemReport> slowMovingProducts,
+        List<StockMovementResponse> recentMovements
 ) {}

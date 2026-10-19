@@ -81,17 +81,86 @@ Refresh tokens are opaque and stored only as SHA-256 hashes. They are checked fo
 | POST | `/api/admin/accessories` | `{name, category, price, description?, stockQuantity?, minStockThreshold?, leadTimeDays?}` → `201`. Initial stock is audited. |
 | GET | `/api/admin/accessories?page=0&size=20&sort=name,asc` | Paged |
 | GET | `/api/admin/accessories/{id}` | |
-| PUT | `/api/admin/accessories/{id}` | Updates catalog data; any supplied stock count is recorded as an audited adjustment. |
+| PUT | `/api/admin/accessories/{id}` | Updates catalog data; a changed `stockQuantity` requires `stockAdjustmentReason`. Prefer inventory movements for receipts, returns and stock corrections. |
 | DELETE | `/api/admin/accessories/{id}` | `204`. Removes the accessory from every vehicle first; products with stock history cannot be deleted. |
 
 ### Inventory (ADMIN)
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/api/admin/inventory/accessories/{id}/movements` | `{type, quantityDelta, note?}` records a movement and updates stock atomically. SALE deltas are negative; PURCHASE and RETURN are positive; ADJUSTMENT accepts either sign. |
+| POST | `/api/admin/inventory/accessories/{id}/movements` | `{type, quantityDelta, note}` records a movement and updates stock atomically. SALE deltas are negative; PURCHASE and RETURN are positive; ADJUSTMENT accepts either sign. A reason is required for receipts, returns and adjustments. Record a supplier receipt only after delivery verification and a return only after resaleability verification. |
 | GET | `/api/admin/inventory/accessories/{id}/movements?page=0&size=20` | Paged stock ledger, newest first, including stock before/after and actor. |
-| GET | `/api/admin/inventory/report?days=30` | Stock dashboard, low/out-of-stock lists, reorder suggestions, and fast/slow movers for a 1–365 day sales window. |
+| GET | `/api/admin/inventory/report?days=30` | Stock dashboard, lead-time demand, reorder points, stock cover, low/out-of-stock lists, replenishment suggestions, fast/slow movers, and the latest movements for a 1–365 day sales window. |
 
-`minStockThreshold` and `leadTimeDays` default to 0 and 7. Average daily sales is units sold divided by the requested analysis days; reorder quantity is `max(0, ceil(averageDailySales × leadTimeDays + minStockThreshold - currentStock))`, rounding up to whole units. This covers expected sales during supplier lead time and retains the configured minimum stock as safety stock; null minimum stock and lead time are treated as 0. Fast movers are the top quartile by units sold (excluding products without sales); slow movers are the bottom quartile, including products with no sales. A daily report and low/out-of-stock warning logs run at midnight UTC by default; configure `INVENTORY_ANALYSIS_CRON` and `INVENTORY_ANALYSIS_TIME_ZONE` to change this. Order-placement code should record a SALE movement in its transaction through the inventory service/API; this repository does not currently contain an order subsystem.
+`minStockThreshold` and `leadTimeDays` default to 0 and 7. Average daily sales is units sold divided by the requested analysis days; lead-time demand is average daily sales multiplied by lead-time days; reorder point is lead-time demand plus `minStockThreshold` (safety stock). Suggested replenishment is `max(0, ceil(reorderPoint - currentStock))`. A zero-sales product has no calculable stock-cover duration (`stockCoverDays: null`). Fast movers are the top quartile by units sold (excluding products without sales); slow movers are the bottom quartile, including products with no sales. The report uses movement aggregates and is read-only. A daily report and low/out-of-stock warning logs run at midnight UTC by default; configure `INVENTORY_ANALYSIS_CRON` and `INVENTORY_ANALYSIS_TIME_ZONE` to change this.
+
+### Orders (CUSTOMER)
+
+An authenticated customer can purchase accessories directly; a successful request is immediately `CONFIRMED`. There is no payment workflow. Send an `Idempotency-Key` (1–128 characters) with every create request. Repeating the same key and payload returns the existing order; using that key for a different payload returns `409`. Duplicate accessory IDs merge into one item. Insufficient stock rejects the whole order with `422`.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/orders` | Creates and confirms the order, snapshots price/discount/tax, deducts stock and records SALE movements in one transaction. |
+| GET | `/api/orders/{orderId}` | Retrieves an order only for its customer. |
+| GET | `/api/orders/my?page=0&size=20` | Paged order history for the authenticated customer. |
+| POST | `/api/orders/{orderId}/cancel` | Cancels an eligible confirmed order and restores stock once. |
+
+Example request:
+
+```http
+POST /api/orders
+Authorization: Bearer <customer-token>
+Idempotency-Key: checkout-2026-10-19-001
+Content-Type: application/json
+
+{"items":[{"accessoryId":12,"quantity":2},{"accessoryId":18,"quantity":1}]}
+```
+
+Example response (`201 Created`):
+
+```json
+{
+  "id": 41,
+  "orderNumber": "ORD-<generated-uuid>",
+  "status": "CONFIRMED",
+  "inventoryProcessingStatus": "DEDUCTED",
+  "subtotal": 250.00,
+  "discountAmount": 0.00,
+  "taxAmount": 45.00,
+  "finalTotal": 295.00,
+  "createdAt": "2026-10-19T16:24:00Z",
+  "updatedAt": "2026-10-19T16:24:00Z",
+  "items": [
+    {
+      "accessoryId": 12,
+      "accessoryName": "Floor Mats",
+      "quantity": 2,
+      "unitPrice": 100.00,
+      "unitDiscount": 0.00,
+      "discountName": null,
+      "taxRate": 18.00,
+      "subtotal": 200.00,
+      "discountAmount": 0.00,
+      "taxAmount": 36.00,
+      "lineTotal": 236.00
+    },
+    {
+      "accessoryId": 18,
+      "accessoryName": "Roof Rack",
+      "quantity": 1,
+      "unitPrice": 50.00,
+      "unitDiscount": 0.00,
+      "discountName": null,
+      "taxRate": 18.00,
+      "subtotal": 50.00,
+      "discountAmount": 0.00,
+      "taxAmount": 9.00,
+      "lineTotal": 59.00
+    }
+  ]
+}
+```
+
+Cancellation changes the status to `CANCELLED` and inventory processing state to `RESTORED`; a second cancellation is rejected with `409`. The order and its item snapshots remain available in customer order history.
 
 ### Vehicle ↔ accessory mappings (ADMIN)
 | Method | Path | Notes |
@@ -206,14 +275,14 @@ backend/src/main/java/org/example
 ├── config/       SecurityConfig, AdminBootstrap
 ├── controller/   Auth, Vehicle, Accessory, Compatibility, UserAdmin
 ├── dto/          Request/response records (validated), PageResponse, ErrorResponse
-├── entity/       User, Vehicle, Accessory (many-to-many via vehicle_accessories), Discount, PriceChange
-├── enums/        Role
+├── entity/       User, Vehicle, Accessory, Order, OrderItem, StockMovement, Discount, PriceChange
+├── enums/        Role, OrderStatus, InventoryProcessingStatus, StockMovementType
 ├── exception/    Domain exceptions + GlobalExceptionHandler
 ├── mapper/       Entity ↔ DTO mapping
 ├── pricing/      PriceCalculator: pure pricing rules (no database access)
 ├── repository/   Spring Data repositories (fetch joins / entity graphs avoid N+1)
 ├── security/     JWT service + filter, key config, 401/403 JSON handlers
-└── service/      Interfaces + impl/
+└── service/      Interfaces + impl/ (including order processing)
 ```
 
 More detail: [docs/FEATURE_DESIGN.md](docs/FEATURE_DESIGN.md) (why each feature exists, rules and edge cases) and

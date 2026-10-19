@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.example.dto.ErrorResponse;
 import org.example.entity.Discount;
+import org.example.entity.Order;
 import org.example.entity.User;
 import org.example.entity.Vehicle;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -135,6 +136,10 @@ public class GlobalExceptionHandler {
             message = "Email is already registered";
         } else if (detail.contains(Discount.UK_CODE)) {
             message = "A discount with this code already exists";
+        } else if (detail.contains(Order.UK_CUSTOMER_IDEMPOTENCY)) {
+            message = "This order request has already been processed";
+        } else if (detail.contains(Order.UK_ORDER_NUMBER)) {
+            message = "Order number already exists";
         } else {
             log.warn("Data integrity violation on {}", request.getRequestURI(), ex);
             message = "Request conflicts with existing data";

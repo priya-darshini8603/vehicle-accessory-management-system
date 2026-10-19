@@ -118,6 +118,159 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void orderPurchaseIsIdempotentAtomicAndRestoresStockOnce() throws Exception {
+        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        String email = "buyer-" + suffix + "@test.local";
+        String otherEmail = "other-" + suffix + "@test.local";
+        String adminToken = login("admin@test.local", "AdminPassword123!");
+        mockMvc.perform(json(post("/api/auth/register"),
+                        "{\"fullName\":\"Buyer\",\"email\":\"" + email
+                                + "\",\"password\":\"customer-password\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(json(post("/api/auth/register"),
+                        "{\"fullName\":\"Other\",\"email\":\"" + otherEmail
+                                + "\",\"password\":\"customer-password\"}"))
+                .andExpect(status().isCreated());
+        String customerToken = login(email, "customer-password");
+        String otherToken = login(otherEmail, "customer-password");
+
+        long firstAccessory = createStockedAccessory(adminToken, "First " + suffix, "100.00", 5);
+        long secondAccessory = createStockedAccessory(adminToken, "Second " + suffix, "50.00", 2);
+        long shortStockAccessory = createStockedAccessory(adminToken, "Short " + suffix, "25.00", 1);
+        String orderRequest = "{\"items\":[{\"accessoryId\":" + firstAccessory
+                + ",\"quantity\":2},{\"accessoryId\":" + firstAccessory
+                + ",\"quantity\":1},{\"accessoryId\":" + secondAccessory + ",\"quantity\":1}]}";
+
+        String orderBody = mockMvc.perform(auth(json(post("/api/orders"), orderRequest)
+                        .header("Idempotency-Key", "order-" + suffix), customerToken))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.inventoryProcessingStatus").value("DEDUCTED"))
+                .andExpect(jsonPath("$.items", hasSize(2)))
+                .andExpect(jsonPath("$.items[0].quantity").value(3))
+                .andExpect(jsonPath("$.subtotal").value(350.00))
+                .andExpect(jsonPath("$.taxAmount").value(63.00))
+                .andExpect(jsonPath("$.finalTotal").value(413.00))
+                .andExpect(jsonPath("$.items[0].unitPrice").value(100.00))
+                .andReturn().getResponse().getContentAsString();
+        long orderId = idOf(orderBody);
+
+        mockMvc.perform(auth(json(post("/api/orders"), orderRequest)
+                        .header("Idempotency-Key", "order-" + suffix), customerToken))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(orderId));
+        mockMvc.perform(auth(json(post("/api/orders"), orderRequest.replace("\"quantity\":2", "\"quantity\":1"))
+                        .header("Idempotency-Key", "order-" + suffix), customerToken))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(auth(get("/api/admin/accessories/{id}", firstAccessory), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stockQuantity").value(2));
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", firstAccessory), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].type").value("SALE"));
+
+        String insufficientRequest = "{\"items\":[{\"accessoryId\":" + firstAccessory
+                + ",\"quantity\":1},{\"accessoryId\":" + shortStockAccessory + ",\"quantity\":2}]}";
+        mockMvc.perform(auth(json(post("/api/orders"), insufficientRequest)
+                        .header("Idempotency-Key", "insufficient-" + suffix), customerToken))
+                .andExpect(status().isUnprocessableContent());
+        mockMvc.perform(auth(get("/api/admin/accessories/{id}", firstAccessory), adminToken))
+                .andExpect(jsonPath("$.stockQuantity").value(2));
+        mockMvc.perform(auth(get("/api/admin/accessories/{id}", shortStockAccessory), adminToken))
+                .andExpect(jsonPath("$.stockQuantity").value(1));
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", shortStockAccessory), adminToken))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mockMvc.perform(auth(get("/api/orders/my"), customerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        mockMvc.perform(auth(json(put("/api/admin/accessories/{id}", firstAccessory),
+                        "{\"name\":\"First " + suffix + "\",\"category\":\"Test\",\"price\":200.00}"),
+                        adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.price").value(200.00));
+        mockMvc.perform(auth(get("/api/orders/{id}", orderId), customerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].unitPrice").value(100.00))
+                .andExpect(jsonPath("$.finalTotal").value(413.00));
+        mockMvc.perform(auth(get("/api/orders/{id}", orderId), otherToken))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(auth(get("/api/orders/{id}", orderId), adminToken))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(auth(post("/api/orders/{id}/cancel", orderId), customerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.inventoryProcessingStatus").value("RESTORED"));
+        mockMvc.perform(auth(post("/api/orders/{id}/cancel", orderId), customerToken))
+                .andExpect(status().isConflict());
+        mockMvc.perform(auth(get("/api/admin/accessories/{id}", firstAccessory), adminToken))
+                .andExpect(jsonPath("$.stockQuantity").value(5));
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", firstAccessory), customerToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(auth(get("/api/admin/inventory/accessories/{id}/movements", firstAccessory), adminToken))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.content[0].type").value("RETURN"));
+    }
+
+    @Test
+    void concurrentOrdersCannotOversellTheSameAccessory() throws Exception {
+        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        String email = "racer-" + suffix + "@test.local";
+        String otherEmail = "racer-other-" + suffix + "@test.local";
+        String adminToken = login("admin@test.local", "AdminPassword123!");
+        mockMvc.perform(json(post("/api/auth/register"),
+                        "{\"fullName\":\"Racer\",\"email\":\"" + email
+                                + "\",\"password\":\"customer-password\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(json(post("/api/auth/register"),
+                        "{\"fullName\":\"Racer Two\",\"email\":\"" + otherEmail
+                                + "\",\"password\":\"customer-password\"}"))
+                .andExpect(status().isCreated());
+        String customerToken = login(email, "customer-password");
+        String otherCustomerToken = login(otherEmail, "customer-password");
+        long accessoryId = createStockedAccessory(adminToken, "Race " + suffix, "75.00", 1);
+
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(2);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<Integer> placeFirstOrder = () -> {
+                ready.countDown();
+                start.await();
+                return mockMvc.perform(auth(json(post("/api/orders"),
+                                "{\"items\":[{\"accessoryId\":" + accessoryId + ",\"quantity\":1}]}")
+                                .header("Idempotency-Key", java.util.UUID.randomUUID().toString()), customerToken))
+                        .andReturn().getResponse().getStatus();
+            };
+            java.util.concurrent.Callable<Integer> placeSecondOrder = () -> {
+                ready.countDown();
+                start.await();
+                return mockMvc.perform(auth(json(post("/api/orders"),
+                                "{\"items\":[{\"accessoryId\":" + accessoryId + ",\"quantity\":1}]}")
+                                .header("Idempotency-Key", java.util.UUID.randomUUID().toString()),
+                                otherCustomerToken))
+                        .andReturn().getResponse().getStatus();
+            };
+            var first = executor.submit(placeFirstOrder);
+            var second = executor.submit(placeSecondOrder);
+            assertThat(ready.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat(List.of(first.get(20, java.util.concurrent.TimeUnit.SECONDS),
+                    second.get(20, java.util.concurrent.TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(201, 422);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        mockMvc.perform(auth(get("/api/admin/accessories/{id}", accessoryId), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stockQuantity").value(0));
+    }
+
+    @Test
     void loginWithWrongPasswordReturns401() throws Exception {
         mockMvc.perform(json(post("/api/auth/login"), """
                         {"email":"admin@test.local","password":"definitely-wrong"}
@@ -183,7 +336,24 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.lowStockItems[0].accessoryId").value(accessoryId))
                 .andExpect(jsonPath("$.lowStockItems[0].currentStock").value(2))
                 .andExpect(jsonPath("$.lowStockItems[0].unitsSold").value(3))
-                .andExpect(jsonPath("$.lowStockItems[0].recommendedReorderQuantity").value(4));
+                .andExpect(jsonPath("$.lowStockItems[0].averageDailySales").value(0.1))
+                .andExpect(jsonPath("$.lowStockItems[0].leadTimeDemand").value(3.0))
+                .andExpect(jsonPath("$.lowStockItems[0].reorderPoint").value(6.0))
+                .andExpect(jsonPath("$.lowStockItems[0].stockCoverDays").value(20.0))
+                .andExpect(jsonPath("$.lowStockItems[0].lowStock").value(true))
+                .andExpect(jsonPath("$.lowStockItems[0].outOfStock").value(false))
+                .andExpect(jsonPath("$.lowStockItems[0].recommendedReorderQuantity").value(4))
+                .andExpect(jsonPath("$.recentMovements[0].type").exists());
+
+        mockMvc.perform(auth(json(post("/api/admin/inventory/accessories/{id}/movements", accessoryId), """
+                        {"type":"ADJUSTMENT","quantityDelta":1}
+                        """), adminToken))
+                .andExpect(status().isUnprocessableContent());
+        mockMvc.perform(auth(json(post("/api/admin/inventory/accessories/{id}/movements", accessoryId), """
+                        {"type":"ADJUSTMENT","quantityDelta":1,"note":"Cycle count correction"}
+                        """), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stockAfter").value(3));
     }
 
     @Test
@@ -415,6 +585,14 @@ class ApiIntegrationTest {
     private long createAccessory(String token, String name, String category) throws Exception {
         return idOf(mockMvc.perform(auth(json(post("/api/admin/accessories"),
                         "{\"name\":\"" + name + "\",\"category\":\"" + category + "\",\"price\":999.00}"), token))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+    }
+
+    private long createStockedAccessory(String token, String name, String price, int stock) throws Exception {
+        return idOf(mockMvc.perform(auth(json(post("/api/admin/accessories"),
+                        "{\"name\":\"" + name + "\",\"category\":\"Test\",\"price\":" + price
+                                + ",\"stockQuantity\":" + stock + "}"), token))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString());
     }

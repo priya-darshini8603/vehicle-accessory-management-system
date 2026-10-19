@@ -20,6 +20,10 @@ public interface AccessoryRepository extends JpaRepository<Accessory, Long> {
     @Query("SELECT a FROM Accessory a WHERE a.id = :accessoryId")
     Optional<Accessory> findByIdForUpdate(@Param("accessoryId") Long accessoryId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Accessory a WHERE a.id IN :accessoryIds ORDER BY a.id")
+    List<Accessory> findAllByIdForUpdate(@Param("accessoryIds") java.util.Collection<Long> accessoryIds);
+
     @Query("SELECT COUNT(v) > 0 FROM Vehicle v JOIN v.accessories a WHERE a.id = :accessoryId")
     boolean isAccessoryAssignedToVehicle(@Param("accessoryId") Long accessoryId);
 

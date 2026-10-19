@@ -45,6 +45,16 @@ class InventoryServiceImplTest {
     }
 
     @Test
+    void receiptReturnAndAdjustmentRequireAReason() {
+        assertThatThrownBy(() -> service.recordMovement(1L,
+                new StockMovementRequest(StockMovementType.PURCHASE, 2, "  "), "admin@test.local"))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("A reason is required for receipts, returns, and stock adjustments");
+
+        verify(stockMovementRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void saleLocksAccessoryUpdatesStockAndRecordsBeforeAndAfterQuantities() {
         Accessory accessory = accessory(1L, 8, 2, 5);
         when(accessoryRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(accessory));
@@ -87,11 +97,35 @@ class InventoryServiceImplTest {
 
         InventoryItemReport fastItem = report.products().getFirst();
         assertThat(fastItem.averageDailySales()).isEqualTo(1.0);
+        assertThat(fastItem.leadTimeDemand()).isEqualTo(10.0);
+        assertThat(fastItem.reorderPoint()).isEqualTo(20.0);
+        assertThat(fastItem.stockCoverDays()).isEqualTo(8.0);
         assertThat(fastItem.recommendedReorderQuantity()).isEqualTo(12);
         assertThat(report.lowStockItems()).containsExactly(fastItem);
         assertThat(report.outOfStockItems()).extracting(InventoryItemReport::accessoryId).containsExactly(2L);
         assertThat(report.fastMovingProducts()).containsExactly(fastItem);
         assertThat(report.slowMovingProducts()).hasSize(1);
+    }
+
+    @Test
+    void reportHandlesNewAccessoriesAndZeroSalesWithoutInventingStockCover() {
+        Accessory newAccessory = accessory(1L, 6, 4, 7);
+        Accessory emptyAccessory = accessory(2L, 0, 2, 3);
+        when(accessoryRepository.findAll()).thenReturn(List.of(newAccessory, emptyAccessory));
+        when(stockMovementRepository.sumSalesSince(any(), any())).thenReturn(List.of());
+
+        InventoryReport report = service.generateReport(30);
+
+        assertThat(report.products()).allSatisfy(item -> {
+            assertThat(item.unitsSold()).isZero();
+            assertThat(item.averageDailySales()).isZero();
+            assertThat(item.leadTimeDemand()).isZero();
+            assertThat(item.stockCoverDays()).isNull();
+        });
+        assertThat(report.products()).extracting(InventoryItemReport::recommendedReorderQuantity)
+                .containsExactly(0, 2);
+        assertThat(report.products()).extracting(InventoryItemReport::outOfStock)
+                .containsExactly(false, true);
     }
 
     @Test

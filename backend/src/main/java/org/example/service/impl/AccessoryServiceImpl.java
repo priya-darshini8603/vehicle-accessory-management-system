@@ -75,12 +75,16 @@ public class AccessoryServiceImpl implements AccessoryService {
         BigDecimal oldPrice = existing.getPrice();
         BigDecimal oldCostPrice = existing.getCostPrice();
         int oldStock = existing.getStockQuantity() == null ? 0 : existing.getStockQuantity();
+        if (request.stockQuantity() != null && request.stockQuantity() != oldStock
+                && (request.stockAdjustmentReason() == null || request.stockAdjustmentReason().isBlank())) {
+            throw new BusinessRuleException("A reason is required when adjusting stock");
+        }
         accessoryMapper.updateEntity(existing, request);
         int newStock = existing.getStockQuantity() == null ? 0 : existing.getStockQuantity();
         if (oldStock != newStock) {
             stockMovementRepository.save(InventoryServiceImpl.createMovement(existing,
                     StockMovementType.ADJUSTMENT, newStock - oldStock, oldStock, newStock,
-                    "Stock count adjustment", actingUserEmail));
+                    request.stockAdjustmentReason(), actingUserEmail));
         }
         if (!sameAmount(oldPrice, existing.getPrice()) || !sameAmount(oldCostPrice, existing.getCostPrice())) {
             recordPriceChange(id, oldPrice, oldCostPrice, existing, actingUserEmail);

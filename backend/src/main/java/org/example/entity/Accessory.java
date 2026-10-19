@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Check;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
@@ -31,6 +32,7 @@ import java.util.Set;
                 @Index(name = "idx_accessories_stock_quantity", columnList = "stock_quantity"),
                 @Index(name = "idx_accessories_min_stock", columnList = "min_stock_threshold")
         })
+@Check(name = "ck_accessories_nonnegative_stock", constraints = "stock_quantity >= 0")
 @Getter
 @Setter
 @NoArgsConstructor

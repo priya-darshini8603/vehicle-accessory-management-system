@@ -42,6 +42,10 @@ public class InventoryServiceImpl implements InventoryService {
                 || !request.isValidMovement()) {
             throw new BusinessRuleException("Stock movement type and quantity delta are invalid");
         }
+        if (request.type() != StockMovementType.SALE
+                && (request.note() == null || request.note().isBlank())) {
+            throw new BusinessRuleException("A reason is required for receipts, returns, and stock adjustments");
+        }
         Accessory accessory = accessoryRepository.findByIdForUpdate(accessoryId)
                 .orElseThrow(() -> ResourceNotFoundException.of("Accessory", accessoryId));
         int before = accessory.getStockQuantity() == null ? 0 : accessory.getStockQuantity();
@@ -85,25 +89,28 @@ public class InventoryServiceImpl implements InventoryService {
         List<InventoryItemReport> products = accessoryRepository.findAll().stream()
                 .map(accessory -> {
                     long sold = salesByAccessory.getOrDefault(accessory.getId(), 0L);
-                    int stock = accessory.getStockQuantity() == null ? 0 : accessory.getStockQuantity();
+                    int stock = Math.max(0, accessory.getStockQuantity() == null ? 0 : accessory.getStockQuantity());
                     int minimum = accessory.getMinStockThreshold() == null ? 0 : accessory.getMinStockThreshold();
-                    int leadTime = accessory.getLeadTimeDays() == null ? 0 : accessory.getLeadTimeDays();
+                    int leadTime = Math.max(0, accessory.getLeadTimeDays() == null ? 0 : accessory.getLeadTimeDays());
                     double averageDailySales = (double) sold / analysisPeriodDays;
-                    // Cover expected sales during supplier lead time while retaining minimum stock as safety stock.
-                    // Subtract current stock and round up so the recommendation always reaches the target stock.
-                    int recommended = Math.max(0,
-                            (int) Math.ceil(averageDailySales * leadTime + minimum - stock));
+                    double leadTimeDemand = averageDailySales * leadTime;
+                    double reorderPoint = leadTimeDemand + minimum;
+                    double stockCoverDays = averageDailySales > 0 ? stock / averageDailySales : Double.NaN;
+                    double replenishment = Math.max(0, Math.ceil(reorderPoint - stock));
+                    int recommended = (int) Math.min(Integer.MAX_VALUE, replenishment);
                     return new InventoryItemReport(accessory.getId(), accessory.getName(), accessory.getCategory(),
-                            stock, minimum, leadTime, sold, averageDailySales, recommended);
+                            stock, minimum, leadTime, sold, averageDailySales, leadTimeDemand, reorderPoint,
+                            Double.isNaN(stockCoverDays) ? null : stockCoverDays,
+                            stock > 0 && stock <= minimum, stock == 0, recommended);
                 })
                 .toList();
 
         List<InventoryItemReport> lowStock = products.stream()
-                .filter(item -> item.currentStock() > 0 && item.currentStock() <= item.minimumStock())
+                .filter(InventoryItemReport::lowStock)
                 .sorted(Comparator.comparingInt(InventoryItemReport::currentStock))
                 .toList();
         List<InventoryItemReport> outOfStock = products.stream()
-                .filter(item -> item.currentStock() == 0)
+                .filter(InventoryItemReport::outOfStock)
                 .toList();
 
         List<InventoryItemReport> fastest = products.stream()
@@ -116,8 +123,12 @@ public class InventoryServiceImpl implements InventoryService {
                         .thenComparing(InventoryItemReport::name))
                 .toList();
 
+        List<StockMovementResponse> recentMovements = stockMovementRepository
+                .findTop20ByOrderByOccurredAtDescIdDesc().stream()
+                .map(InventoryServiceImpl::toResponse)
+                .toList();
         return new InventoryReport(now, analysisPeriodDays, products, lowStock, outOfStock,
-                quartile(fastest), quartile(slowest));
+                quartile(fastest), quartile(slowest), recentMovements);
     }
 
     private static List<InventoryItemReport> quartile(List<InventoryItemReport> ranked) {
