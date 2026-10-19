@@ -6,6 +6,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -21,7 +22,13 @@ import java.util.Objects;
 import java.util.Set;
 
 @Entity
-@Table(name = "accessories")
+@Table(
+        name = "accessories",
+        indexes = {
+                // Category drives category-wide discounts and catalog filtering.
+                @Index(name = "idx_accessories_category", columnList = "category"),
+                @Index(name = "idx_accessories_name", columnList = "name")
+        })
 @Getter
 @Setter
 @NoArgsConstructor
@@ -37,8 +44,18 @@ public class Accessory {
     @Column(nullable = false, length = 50)
     private String category;
 
+    // Base selling price before discounts and tax.
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
+
+    // What the accessory costs us. Discounts never take the selling price below it (margin floor).
+    // Nullable so existing rows stay valid; null means no floor other than zero.
+    @Column(name = "cost_price", precision = 12, scale = 2)
+    private BigDecimal costPrice;
+
+    // GST rate in percent. Null means the default rate (app.pricing.default-tax-rate).
+    @Column(name = "tax_rate", precision = 5, scale = 2)
+    private BigDecimal taxRate;
 
     @Column(length = 1000)
     private String description;

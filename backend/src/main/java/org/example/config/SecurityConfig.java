@@ -105,6 +105,10 @@ public class SecurityConfig {
                             .requestMatchers(HttpMethod.GET, "/api/compatibility/**", "/api/compatibility")
                             .hasAnyRole("ADMIN", "CUSTOMER")
 
+                            // Own garage and price quotes, for every signed-in role.
+                            .requestMatchers("/api/me/**").hasAnyRole("ADMIN", "CUSTOMER")
+                            .requestMatchers(HttpMethod.POST, "/api/pricing/quote").hasAnyRole("ADMIN", "CUSTOMER")
+
                             // Everything else, including POST /api/auth/logout, needs a valid token.
                             .anyRequest().authenticated())
                     .headers(Customizer.withDefaults())

@@ -23,9 +23,21 @@ public class AccessoryMapper {
         accessory.setPrice(request.price());
         accessory.setDescription(request.description());
         accessory.setStockQuantity(request.stockQuantity());
+        accessory.setCostPrice(request.costPrice());
+        accessory.setTaxRate(request.taxRate());
     }
 
+    // Admin view, including the cost price.
     public AccessoryResponse toResponse(Accessory accessory) {
+        return toResponse(accessory, true);
+    }
+
+    // Customer-facing view: the cost price is confidential (it reveals our margin).
+    public AccessoryResponse toPublicResponse(Accessory accessory) {
+        return toResponse(accessory, false);
+    }
+
+    private AccessoryResponse toResponse(Accessory accessory, boolean includeCost) {
         return new AccessoryResponse(
                 accessory.getId(),
                 accessory.getName(),
@@ -33,6 +45,8 @@ public class AccessoryMapper {
                 accessory.getPrice(),
                 accessory.getDescription(),
                 accessory.getStockQuantity(),
+                includeCost ? accessory.getCostPrice() : null,
+                accessory.getTaxRate(),
                 accessory.getCreatedAt(),
                 accessory.getUpdatedAt());
     }

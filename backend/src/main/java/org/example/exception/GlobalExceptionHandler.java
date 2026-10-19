@@ -4,9 +4,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.example.dto.ErrorResponse;
+import org.example.entity.Discount;
 import org.example.entity.User;
 import org.example.entity.Vehicle;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -116,11 +119,21 @@ public class GlobalExceptionHandler {
             message = "A vehicle with this vehicle number already exists";
         } else if (detail.contains(User.UK_EMAIL)) {
             message = "Email is already registered";
+        } else if (detail.contains(Discount.UK_CODE)) {
+            message = "A discount with this code already exists";
         } else {
             log.warn("Data integrity violation on {}", request.getRequestURI(), ex);
             message = "Request conflicts with existing data";
         }
         return build(HttpStatus.CONFLICT, message, request);
+    }
+
+    // Another request changed the same record first (@Version mismatch) or held its lock too long.
+    // The client should reload and retry rather than silently overwrite the other change.
+    @ExceptionHandler({ObjectOptimisticLockingFailureException.class, PessimisticLockingFailureException.class})
+    public ResponseEntity<ErrorResponse> handleConcurrentModification(Exception ex, HttpServletRequest request) {
+        log.info("Concurrent modification on {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.CONFLICT, "The resource was changed by another request. Reload and try again.", request);
     }
 
     @ExceptionHandler(BadCredentialsException.class)

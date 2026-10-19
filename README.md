@@ -113,6 +113,54 @@ Matching ignores case and surrounding whitespace. The response looks like this:
 }
 ```
 
+### My garage (ADMIN, CUSTOMER): a customer's own vehicles
+The owner is always the signed-in user. Another user's vehicle id returns `404`, the same as a missing one.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/me/vehicles` | Primary vehicle first, then in the order added. Each entry has `compatibleAccessoryCount`. |
+| POST | `/api/me/vehicles` | `{vehicleNumber, make, model, year, nickname?}` → `201`. The first vehicle becomes primary. Max 10 per customer (`MAX_VEHICLES_PER_CUSTOMER`). |
+| GET | `/api/me/vehicles/{id}` | |
+| PATCH | `/api/me/vehicles/{id}` | `{nickname}`. Nicknames are unique within a garage. |
+| PUT | `/api/me/vehicles/{id}/primary` | Makes this the default vehicle |
+| DELETE | `/api/me/vehicles/{id}` | `204`. Unlinks the vehicle (e.g. sold); it stays in the catalog. If it was primary, the oldest remaining vehicle becomes primary. |
+| GET | `/api/me/vehicles/{id}/accessories` | Compatible accessories for one of your vehicles |
+
+Adding a number that already exists: `409` if it's yours or someone else's; if it's unowned (a catalog entry or
+released by its previous owner) you can add it, but only when make, model and year match (`422` otherwise).
+
+### Discounts (ADMIN)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/admin/discounts` | See body below → `201` |
+| GET | `/api/admin/discounts` | Paged. `live` = active and inside its validity window now. |
+| GET / PUT / DELETE | `/api/admin/discounts/{id}` | Send `"active": false` to pause one without deleting it |
+
+```json
+{"name": "Festive sale", "code": "FESTIVE25", "type": "PERCENTAGE", "value": 25,
+ "scope": "CATEGORY", "category": "Interior", "maxDiscountAmount": 500, "minQuantity": 1,
+ "validFrom": "2026-10-20T00:00:00Z", "validTo": "2026-11-05T00:00:00Z", "active": true}
+```
+
+- No `code` = automatic promotion. With a `code` = coupon, applied only when the customer enters it.
+- `type`: `PERCENTAGE` (≤ 100, optional `maxDiscountAmount` cap per unit) or `FLAT` (amount off per unit).
+- `scope`: `ALL` (no target), `CATEGORY` (needs `category`), `ACCESSORY` (needs `accessoryId`).
+- `minQuantity` gives bulk pricing ("15% off when you buy 4").
+
+Accessories also take optional `costPrice` (the price can't be lower) and `taxRate` (GST %, default 18 via
+`DEFAULT_TAX_RATE`). `costPrice` only appears in admin responses. `GET /api/admin/accessories/{id}/price-history`
+shows every price change and who made it.
+
+### Price quote (ADMIN, CUSTOMER)
+`POST /api/pricing/quote` with `{items: [{accessoryId, quantity}], couponCode?, vehicleId?}` returns each line's
+unit price, discount, tax and total, plus the cart totals. Nothing is saved.
+
+- Discounts don't stack. Each line gets the one discount that saves the most (an automatic one or the coupon).
+- A discount never takes the price below `costPrice`. GST is charged on the discounted price.
+- Coupon errors are `422` with a specific message: not valid, no longer active, not active yet, expired, or doesn't
+  apply to any item. A valid coupon that loses to a better automatic discount is reported in `warnings`.
+- Lines flag `Out of stock` / `Only N in stock`, and, when `vehicleId` is given, accessories not listed as compatible.
+
 ### Errors
 
 Every error uses the same response body. `fieldErrors` appears only on validation failures:
@@ -133,7 +181,7 @@ Every error uses the same response body. `fieldErrors` appears only on validatio
 | 401 | Missing, invalid or expired token; wrong login credentials |
 | 403 | Authenticated, but the role isn't allowed |
 | 404 | Unknown vehicle, accessory, user or mapping |
-| 409 | Duplicate vehicle number or email |
+| 409 | Duplicate vehicle number, email or discount code; the record was changed by a concurrent request |
 | 422 | Business rule violation (e.g. an admin demoting themselves) |
 | 500 | Unexpected error (details are logged, never returned) |
 
@@ -149,11 +197,15 @@ backend/src/main/java/org/example
 ├── config/       SecurityConfig, AdminBootstrap
 ├── controller/   Auth, Vehicle, Accessory, Compatibility, UserAdmin
 ├── dto/          Request/response records (validated), PageResponse, ErrorResponse
-├── entity/       User, Vehicle, Accessory (many-to-many via vehicle_accessories)
+├── entity/       User, Vehicle, Accessory (many-to-many via vehicle_accessories), Discount, PriceChange
 ├── enums/        Role
 ├── exception/    Domain exceptions + GlobalExceptionHandler
 ├── mapper/       Entity ↔ DTO mapping
+├── pricing/      PriceCalculator: pure pricing rules (no database access)
 ├── repository/   Spring Data repositories (fetch joins / entity graphs avoid N+1)
 ├── security/     JWT service + filter, key config, 401/403 JSON handlers
 └── service/      Interfaces + impl/
 ```
+
+More detail: [docs/FEATURE_DESIGN.md](docs/FEATURE_DESIGN.md) (why each feature exists, rules and edge cases) and
+[docs/CODING_PRACTICES.md](docs/CODING_PRACTICES.md) (how we write code in this repo).

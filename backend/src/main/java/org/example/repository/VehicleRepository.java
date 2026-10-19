@@ -42,4 +42,40 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     @EntityGraph(attributePaths = "accessories")
     @Query("SELECT v FROM Vehicle v WHERE v.id IN :ids")
     List<Vehicle> findAllWithAccessoriesByIdIn(@Param("ids") Collection<Long> ids);
+
+    // --- Customer garage (served by idx_vehicles_user_id) ---------------------------------
+
+    // Primary vehicle first, then in the order they were added.
+    @Query("""
+            SELECT v FROM Vehicle v
+            WHERE v.user.id = :userId
+            ORDER BY v.primaryVehicle DESC, v.createdAt ASC, v.id ASC
+            """)
+    List<Vehicle> findGarage(@Param("userId") Long userId);
+
+    // Ownership is part of the WHERE clause, so another customer's vehicle is simply "not found".
+    Optional<Vehicle> findByIdAndUserId(Long id, Long userId);
+
+    @EntityGraph(attributePaths = "accessories")
+    @Query("SELECT v FROM Vehicle v WHERE v.id = :id AND v.user.id = :userId")
+    Optional<Vehicle> findByIdAndUserIdWithAccessories(@Param("id") Long id, @Param("userId") Long userId);
+
+    @EntityGraph(attributePaths = "accessories")
+    @Query("SELECT v FROM Vehicle v WHERE v.id = :id AND v.user.email = :email")
+    Optional<Vehicle> findByIdAndOwnerEmailWithAccessories(@Param("id") Long id, @Param("email") String email);
+
+    long countByUserId(Long userId);
+
+    boolean existsByUserIdAndPrimaryVehicleTrue(Long userId);
+
+    // Oldest remaining vehicle of an owner, used to hand over the primary flag.
+    Optional<Vehicle> findFirstByUserIdAndIdNotOrderByCreatedAtAscIdAsc(Long userId, Long excludedId);
+
+    // Compatible-accessory counts for many vehicles in one grouped query instead of one per vehicle.
+    // Each row is [vehicleId, count].
+    @Query("""
+            SELECT v.id, COUNT(a.id) FROM Vehicle v LEFT JOIN v.accessories a
+            WHERE v.id IN :ids GROUP BY v.id
+            """)
+    List<Object[]> countAccessoriesByVehicleIds(@Param("ids") Collection<Long> ids);
 }

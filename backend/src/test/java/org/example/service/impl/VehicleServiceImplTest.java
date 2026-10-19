@@ -13,6 +13,7 @@ import org.example.mapper.VehicleMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.UserRepository;
 import org.example.repository.VehicleRepository;
+import org.example.service.PrimaryVehiclePolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,7 +51,7 @@ class VehicleServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new VehicleServiceImpl(vehicleRepository, accessoryRepository, userRepository,
-                new VehicleMapper(new AccessoryMapper()));
+                new VehicleMapper(new AccessoryMapper()), new PrimaryVehiclePolicy(vehicleRepository));
     }
 
     @Test

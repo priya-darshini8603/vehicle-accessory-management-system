@@ -3,6 +3,7 @@ package org.example.mapper;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.AccessoryResponse;
 import org.example.dto.CompatibilityResponse;
+import org.example.dto.GarageVehicleResponse;
 import org.example.dto.VehicleRequest;
 import org.example.dto.VehicleResponse;
 import org.example.entity.Accessory;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Function;
 
 @Component
 @RequiredArgsConstructor
@@ -43,13 +45,26 @@ public class VehicleMapper {
                 vehicle.getYear(),
                 // getId() on a lazy proxy does not trigger initialization
                 vehicle.getUser() != null ? vehicle.getUser().getId() : null,
-                sortedAccessories(vehicle),
+                sortedAccessories(vehicle, accessoryMapper::toResponse),
                 vehicle.getCreatedAt(),
                 vehicle.getUpdatedAt());
     }
 
+    public GarageVehicleResponse toGarageResponse(Vehicle vehicle, long compatibleAccessoryCount) {
+        return new GarageVehicleResponse(
+                vehicle.getId(),
+                vehicle.getVehicleNumber(),
+                vehicle.getMake(),
+                vehicle.getModel(),
+                vehicle.getYear(),
+                vehicle.getNickname(),
+                vehicle.isPrimaryVehicle(),
+                compatibleAccessoryCount,
+                vehicle.getCreatedAt());
+    }
+
     public CompatibilityResponse toCompatibilityResponse(Vehicle vehicle) {
-        List<AccessoryResponse> accessories = sortedAccessories(vehicle);
+        List<AccessoryResponse> accessories = sortedAccessories(vehicle, accessoryMapper::toPublicResponse);
         return new CompatibilityResponse(
                 new CompatibilityResponse.VehicleSummary(
                         vehicle.getId(),
@@ -62,11 +77,12 @@ public class VehicleMapper {
     }
 
     // Deterministic ordering (category, then name) since the underlying collection is a Set.
-    private List<AccessoryResponse> sortedAccessories(Vehicle vehicle) {
+    private static List<AccessoryResponse> sortedAccessories(
+            Vehicle vehicle, Function<Accessory, AccessoryResponse> toResponse) {
         return vehicle.getAccessories().stream()
                 .sorted(Comparator.comparing(Accessory::getCategory, String.CASE_INSENSITIVE_ORDER)
                         .thenComparing(Accessory::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(accessoryMapper::toResponse)
+                .map(toResponse)
                 .toList();
     }
 }

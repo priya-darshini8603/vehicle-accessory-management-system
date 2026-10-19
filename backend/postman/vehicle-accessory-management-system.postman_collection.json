@@ -1,35 +1,40 @@
 {
   "info": {
+    "_postman_id": "3088c31d-31d0-52b2-9ca6-3f27391bb384",
     "name": "Vehicle Accessory Management System",
-    "_postman_id": "6c1d6a2e-7f0b-4b6e-9d43-vams00000001",
-    "description": "Run top-to-bottom (Collection Runner works). 'Login as admin' uses the bootstrap admin from ADMIN_EMAIL / ADMIN_PASSWORD (dev defaults shown in collection variables). Tokens and ids are captured automatically.",
+    "description": "End-to-end API suite. Select the **VAMS Local** environment, start the backend, then run the whole collection with the Collection Runner (folders run top to bottom). Tokens and ids are captured automatically into collection variables.\n\nAuth: the collection uses `Bearer {{adminToken}}` by default; customer and public requests override it.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{adminToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Runs after EVERY request in the collection.",
+          "pm.test('Responds in under 2s', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+          "if (pm.response.code >= 400) {",
+          "  pm.test('Error body has the standard shape', () => {",
+          "    const e = pm.response.json();",
+          "    pm.expect(e).to.include.keys('timestamp', 'status', 'error', 'message', 'path');",
+          "    pm.expect(e.status).to.eql(pm.response.code);",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8080"
-    },
-    {
-      "key": "adminEmail",
-      "value": "admin@vams.local"
-    },
-    {
-      "key": "adminPassword",
-      "value": "Admin@12345678"
-    },
-    {
-      "key": "customerEmail",
-      "value": "customer@example.com"
-    },
-    {
-      "key": "customerPassword",
-      "value": "Customer@123456"
-    },
-    {
-      "key": "vehicleNumber",
-      "value": "KA01AB1234"
-    },
     {
       "key": "adminToken",
       "value": ""
@@ -57,7 +62,8 @@
   ],
   "item": [
     {
-      "name": "1. Auth",
+      "name": "01 Auth",
+      "description": "Register a customer and log in as admin and customer.",
       "item": [
         {
           "name": "Register customer",
@@ -80,6 +86,7 @@
                 "register"
               ]
             },
+            "description": "201 on first run; 409 on later runs (email already registered). Both are fine.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fullName\": \"Asha Rao\",\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\",\n  \"phoneNumber\": \"+91 98765 43210\"\n}",
@@ -99,8 +106,60 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Created or already exists', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
-                  "if (pm.response.code < 300) pm.collectionVariables.set('customerId', pm.response.json().id);"
+                  "pm.test('Created, or already registered', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "if (pm.response.code === 201) {",
+                  "  pm.test('Self-registration is always CUSTOMER', () => pm.expect(pm.response.json().role).to.eql('CUSTOMER'));",
+                  "  pm.test('Password is never returned', () => pm.expect(pm.response.json()).to.not.have.property('password'));",
+                  "  pm.collectionVariables.set('customerId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register - invalid body (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"\",\n  \"email\": \"not-an-email\",\n  \"password\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Field errors returned', () => pm.expect(body.fieldErrors).to.include.keys('fullName', 'email', 'password'));"
                 ]
               }
             }
@@ -147,6 +206,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Bearer token issued', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.accessToken).to.be.a('string'); });",
+                  "pm.test('User is ADMIN', () => pm.expect(body.user.role).to.eql('ADMIN'));",
                   "if (pm.response.code < 300) pm.collectionVariables.set('adminToken', pm.response.json().accessToken);"
                 ]
               }
@@ -194,14 +256,17 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "if (pm.response.code < 300) pm.collectionVariables.set('customerToken', pm.response.json().accessToken);"
+                  "const body = pm.response.json();",
+                  "pm.test('User is CUSTOMER', () => pm.expect(body.user.role).to.eql('CUSTOMER'));",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('customerToken', pm.response.json().accessToken);",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('customerId', pm.response.json().user.id);"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Login with wrong password (401)",
+          "name": "Login - wrong password (401)",
           "request": {
             "method": "POST",
             "header": [
@@ -223,7 +288,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"wrong-password\"\n}",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"wrong-password-123\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -240,7 +305,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Error message', () => pm.expect(pm.response.json().message).to.eql(\"Invalid email or password\"));"
                 ]
               }
             }
@@ -249,7 +315,339 @@
       ]
     },
     {
-      "name": "2. Admin - Vehicles",
+      "name": "02 Admin - Accessories",
+      "description": "Accessory catalog CRUD (ADMIN only).",
+      "item": [
+        {
+          "name": "Create accessory",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"All-Weather Floor Mats\",\n  \"category\": \"Interior\",\n  \"price\": 1499.0,\n  \"description\": \"Rubber mats, set of 4\",\n  \"stockQuantity\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Location header set', () => pm.response.to.have.header('Location'));",
+                  "pm.test('Fields saved', () => { pm.expect(body.name).to.eql('All-Weather Floor Mats'); pm.expect(body.price).to.eql(1499); });",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('accessoryId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create second accessory",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Roof Rack\",\n  \"category\": \"Exterior\",\n  \"price\": 8999.5,\n  \"description\": \"Aluminium cross bars\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('accessoryId2', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create accessory - invalid (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"category\": \"Interior\",\n  \"price\": -10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('name and price flagged', () => pm.expect(body.fieldErrors).to.include.keys('name', 'price'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List accessories (paged)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories?page=0&size=20&sort=name,asc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": "name,asc"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Page envelope', () => pm.expect(body).to.include.keys('content', 'page', 'size', 'totalElements', 'totalPages'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List accessories - bad sort (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories?sort=doesNotExist",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "doesNotExist"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get accessory by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories",
+                "{{accessoryId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Correct accessory', () => pm.expect(body.id).to.eql(Number(pm.collectionVariables.get('accessoryId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get accessory - not found (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories",
+                "999999"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error message', () => pm.expect(pm.response.json().message).to.eql(\"Accessory with id 999999 not found\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update accessory",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories",
+                "{{accessoryId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"All-Weather Floor Mats\",\n  \"category\": \"Interior\",\n  \"price\": 1299.0,\n  \"description\": \"Rubber mats, set of 4 (sale)\",\n  \"stockQuantity\": 45\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Price and description updated', () => { pm.expect(body.price).to.eql(1299); pm.expect(body.description).to.include('sale'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 Admin - Vehicles",
+      "description": "Vehicle CRUD (ADMIN only). Vehicle numbers are unique, trimmed and upper-cased.",
       "item": [
         {
           "name": "Create vehicle",
@@ -274,22 +672,12 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"vehicleNumber\": \"KA01AB1234\",\n  \"make\": \"Maruti Suzuki\",\n  \"model\": \"Swift\",\n  \"year\": 2022\n}",
+              "raw": "{\n  \"vehicleNumber\": \"{{vehicleNumber}}\",\n  \"make\": \"Maruti Suzuki\",\n  \"model\": \"Swift\",\n  \"year\": 2022\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
             }
           },
           "event": [
@@ -299,6 +687,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Number normalized to upper case', () => pm.expect(body.vehicleNumber).to.eql(pm.environment.get('vehicleNumber').trim().toUpperCase()));",
+                  "pm.test('No accessories yet', () => pm.expect(body.accessories).to.be.an('array').that.is.empty);",
                   "if (pm.response.code < 300) pm.collectionVariables.set('vehicleId', pm.response.json().id);"
                 ]
               }
@@ -328,22 +719,12 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"vehicleNumber\": \" ka01ab1234 \",\n  \"make\": \"Maruti Suzuki\",\n  \"model\": \"Swift\",\n  \"year\": 2022\n}",
+              "raw": "{\n  \"vehicleNumber\": \"  {{vehicleNumber}}  \",\n  \"make\": \"Maruti Suzuki\",\n  \"model\": \"Swift\",\n  \"year\": 2022\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
             }
           },
           "event": [
@@ -359,7 +740,7 @@
           ]
         },
         {
-          "name": "Create invalid vehicle (400)",
+          "name": "Create vehicle - invalid (400)",
           "request": {
             "method": "POST",
             "header": [
@@ -387,16 +768,6 @@
                   "language": "json"
                 }
               }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
             }
           },
           "event": [
@@ -405,7 +776,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Field errors returned', () => pm.expect(body.fieldErrors).to.include.keys('vehicleNumber', 'make', 'model', 'year'));"
                 ]
               }
             }
@@ -440,16 +813,6 @@
                   "value": "vehicleNumber,asc"
                 }
               ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
             }
           },
           "event": [
@@ -458,7 +821,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Contains created vehicle', () => pm.expect(body.content.map(v => v.id)).to.include(Number(pm.collectionVariables.get('vehicleId'))));"
                 ]
               }
             }
@@ -480,16 +845,6 @@
                 "vehicles",
                 "{{vehicleId}}"
               ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
             }
           },
           "event": [
@@ -499,6 +854,36 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get vehicle - non-numeric id (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/vehicles/abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "vehicles",
+                "abc"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
                 ]
               }
             }
@@ -528,22 +913,12 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"vehicleNumber\": \"KA01AB1234\",\n  \"make\": \"Maruti Suzuki\",\n  \"model\": \"Swift ZXi\",\n  \"year\": 2023\n}",
+              "raw": "{\n  \"vehicleNumber\": \"{{vehicleNumber}}\",\n  \"make\": \"Maruti Suzuki\",\n  \"model\": \"Swift ZXi\",\n  \"year\": 2023\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
             }
           },
           "event": [
@@ -552,7 +927,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Model and year updated', () => { pm.expect(body.model).to.eql('Swift ZXi'); pm.expect(body.year).to.eql(2023); });"
                 ]
               }
             }
@@ -596,159 +973,25 @@
               }
             }
           ]
-        }
-      ]
-    },
-    {
-      "name": "3. Admin - Accessories",
-      "item": [
-        {
-          "name": "Create accessory",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "accessories"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"All-Weather Floor Mats\",\n  \"category\": \"Interior\",\n  \"price\": 1499.0,\n  \"description\": \"Rubber mats, set of 4\",\n  \"stockQuantity\": 50\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
-                  "if (pm.response.code < 300) pm.collectionVariables.set('accessoryId', pm.response.json().id);"
-                ]
-              }
-            }
-          ]
         },
         {
-          "name": "Create second accessory",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "accessories"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Roof Rack\",\n  \"category\": \"Exterior\",\n  \"price\": 8999.5,\n  \"description\": \"Aluminium cross bars\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
-                  "if (pm.response.code < 300) pm.collectionVariables.set('accessoryId2', pm.response.json().id);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "List accessories (paged)",
+          "name": "No token (401)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories?page=0&size=20&sort=name,asc",
+              "raw": "{{baseUrl}}/api/admin/vehicles",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "admin",
-                "accessories"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                },
-                {
-                  "key": "sort",
-                  "value": "name,asc"
-                }
+                "vehicles"
               ]
             },
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "event": [
@@ -757,101 +1000,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get accessory by id",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "accessories",
-                "{{accessoryId}}"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update accessory",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "accessories",
-                "{{accessoryId}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"All-Weather Floor Mats\",\n  \"category\": \"Interior\",\n  \"price\": 1299.0,\n  \"description\": \"Rubber mats, set of 4 (sale)\",\n  \"stockQuantity\": 45\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
                 ]
               }
             }
@@ -860,7 +1009,8 @@
       ]
     },
     {
-      "name": "4. Admin - Mappings",
+      "name": "04 Admin - Mappings",
+      "description": "Map accessories to a vehicle (ADMIN only).",
       "item": [
         {
           "name": "Map accessory to vehicle",
@@ -880,15 +1030,39 @@
                 "accessories",
                 "{{accessoryId}}"
               ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('One accessory mapped', () => pm.expect(body.accessories).to.have.lengthOf(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Map same accessory again (idempotent)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}/accessories/{{accessoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "vehicles",
+                "{{vehicleId}}",
+                "accessories",
+                "{{accessoryId}}"
               ]
             }
           },
@@ -898,7 +1072,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Still one accessory', () => pm.expect(body.accessories).to.have.lengthOf(1));"
                 ]
               }
             }
@@ -929,22 +1105,12 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"accessoryIds\": [\n    {{accessoryId}},\n    {{accessoryId2}}\n  ]\n}",
+              "raw": "{\n  \"accessoryIds\": [{{accessoryId}}, {{accessoryId2}}]\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
             }
           },
           "event": [
@@ -953,7 +1119,55 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Both accessories mapped', () => pm.expect(body.accessories).to.have.lengthOf(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bulk replace - unknown id (404)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}/accessories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "vehicles",
+                "{{vehicleId}}",
+                "accessories"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accessoryIds\": [{{accessoryId}}, 999999]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error message', () => pm.expect(pm.response.json().message).to.eql(\"Accessories not found with ids [999999]\"));"
                 ]
               }
             }
@@ -977,15 +1191,71 @@
                 "accessories",
                 "{{accessoryId2}}"
               ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('One accessory left', () => pm.expect(body.accessories).to.have.lengthOf(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove mapping - not mapped (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}/accessories/{{accessoryId2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "vehicles",
+                "{{vehicleId}}",
+                "accessories",
+                "{{accessoryId2}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Re-map second accessory",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}/accessories/{{accessoryId2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "vehicles",
+                "{{vehicleId}}",
+                "accessories",
+                "{{accessoryId2}}"
               ]
             }
           },
@@ -1004,7 +1274,8 @@
       ]
     },
     {
-      "name": "5. Compatibility",
+      "name": "05 Compatibility",
+      "description": "Accessory search by vehicle number (ADMIN or CUSTOMER). Case and surrounding spaces are ignored.",
       "item": [
         {
           "name": "Search by query param (customer)",
@@ -1044,19 +1315,22 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Two compatible accessories', () => pm.expect(body.totalAccessories).to.eql(2));",
+                  "pm.test('Sorted by category then name', () => pm.expect(body.compatibleAccessories.map(a => a.category)).to.eql(['Exterior', 'Interior']));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Search by path, mixed case (customer)",
+          "name": "Search by path, lower case (customer)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/compatibility/vehicles/ka01Ab1234/accessories",
+              "raw": "{{baseUrl}}/api/compatibility/vehicles/{{vehicleNumberLower}}/accessories",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1064,7 +1338,7 @@
                 "api",
                 "compatibility",
                 "vehicles",
-                "ka01Ab1234",
+                "{{vehicleNumberLower}}",
                 "accessories"
               ]
             },
@@ -1075,6 +1349,51 @@
                   "key": "token",
                   "value": "{{customerToken}}",
                   "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Same vehicle found', () => pm.expect(body.vehicle.id).to.eql(Number(pm.collectionVariables.get('vehicleId'))));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('vehicleNumberLower', pm.environment.get('vehicleNumber').toLowerCase());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search as admin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/compatibility?vehicleNumber={{vehicleNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compatibility"
+              ],
+              "query": [
+                {
+                  "key": "vehicleNumber",
+                  "value": "{{vehicleNumber}}"
                 }
               ]
             }
@@ -1126,19 +1445,20 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error message', () => pm.expect(pm.response.json().message).to.eql(\"Vehicle with number 'ZZ00ZZ0000' not found\"));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "No token (401)",
+          "name": "Blank vehicle number (400)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/compatibility?vehicleNumber={{vehicleNumber}}",
+              "raw": "{{baseUrl}}/api/compatibility?vehicleNumber=%20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1149,12 +1469,19 @@
               "query": [
                 {
                   "key": "vehicleNumber",
-                  "value": "{{vehicleNumber}}"
+                  "value": "%20"
                 }
               ]
             },
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -1163,7 +1490,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
                 ]
               }
             }
@@ -1172,7 +1499,8 @@
       ]
     },
     {
-      "name": "6. Admin - Users",
+      "name": "06 Admin - Users",
+      "description": "List users and change roles (ADMIN only).",
       "item": [
         {
           "name": "List users",
@@ -1180,7 +1508,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/users?page=0&size=20",
+              "raw": "{{baseUrl}}/api/admin/users?page=0&size=100",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1196,17 +1524,7 @@
                 },
                 {
                   "key": "size",
-                  "value": "20"
-                }
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
+                  "value": "100"
                 }
               ]
             }
@@ -1217,14 +1535,18 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const me = body.content.find(u => u.email === pm.environment.get('customerEmail'));",
+                  "pm.test('Customer is listed', () => pm.expect(me).to.exist);",
+                  "if (me) pm.collectionVariables.set('customerId', me.id);"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Promote user to ADMIN",
+          "name": "Promote customer to ADMIN",
           "request": {
             "method": "PUT",
             "header": [
@@ -1246,7 +1568,6 @@
                 "role"
               ]
             },
-            "description": "Grants ADMIN to the registered customer. Run 'Demote user to CUSTOMER' afterwards to restore.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"role\": \"ADMIN\"\n}",
@@ -1255,21 +1576,64 @@
                   "language": "json"
                 }
               }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Role is ADMIN', () => pm.expect(body.role).to.eql('ADMIN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Promoted user can use admin API",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories"
+              ]
             },
+            "description": "The role is re-read on every request, so the existing token picks up the new role immediately.",
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{adminToken}}",
+                  "value": "{{customerToken}}",
                   "type": "string"
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "Demote user to CUSTOMER",
+          "name": "Demote back to CUSTOMER",
           "request": {
             "method": "PUT",
             "header": [
@@ -1299,26 +1663,75 @@
                   "language": "json"
                 }
               }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Role is CUSTOMER', () => pm.expect(body.role).to.eql('CUSTOMER'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid role (400)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/{{customerId}}/role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "{{customerId}}",
+                "role"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"SUPERUSER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "7. Cleanup",
+      "name": "07 Cleanup",
+      "description": "Deletes what this run created so the collection can be run again.",
       "item": [
         {
-          "name": "Delete accessory (unmaps it first)",
+          "name": "Delete mapped accessory (detaches first)",
           "request": {
             "method": "DELETE",
             "header": [],
@@ -1332,16 +1745,6 @@
                 "admin",
                 "accessories",
                 "{{accessoryId}}"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
               ]
             }
           },
@@ -1358,30 +1761,20 @@
           ]
         },
         {
-          "name": "Delete second accessory",
+          "name": "Vehicle now has one accessory",
           "request": {
-            "method": "DELETE",
+            "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId2}}",
+              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "admin",
-                "accessories",
-                "{{accessoryId2}}"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
+                "vehicles",
+                "{{vehicleId}}"
               ]
             }
           },
@@ -1391,7 +1784,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('One accessory left', () => pm.expect(body.accessories).to.have.lengthOf(1));"
                 ]
               }
             }
@@ -1413,13 +1808,138 @@
                 "vehicles",
                 "{{vehicleId}}"
               ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accessory survives vehicle delete",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories",
+                "{{accessoryId2}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete second accessory",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories",
+                "{{accessoryId2}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deleted vehicle is gone (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "vehicles",
+                "{{vehicleId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 Logout",
+      "description": "Revokes tokens. Runs last because it invalidates them.",
+      "item": [
+        {
+          "name": "Logout customer",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
             },
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{adminToken}}",
+                  "value": "{{customerToken}}",
                   "type": "string"
                 }
               ]
@@ -1431,7 +1951,115 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Logout message', () => pm.expect(body.message).to.eql('Logout successful'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revoked token is rejected (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/compatibility?vehicleNumber={{vehicleNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compatibility"
+              ],
+              "query": [
+                {
+                  "key": "vehicleNumber",
+                  "value": "{{vehicleNumber}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Error message', () => pm.expect(pm.response.json().message).to.eql(\"Token has been revoked. Please log in again.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout without token (401)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout admin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
                 ]
               }
             }

@@ -13,6 +13,7 @@ import org.example.mapper.VehicleMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.UserRepository;
 import org.example.repository.VehicleRepository;
+import org.example.service.PrimaryVehiclePolicy;
 import org.example.service.VehicleService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
@@ -34,6 +36,7 @@ public class VehicleServiceImpl implements VehicleService {
     private final AccessoryRepository accessoryRepository;
     private final UserRepository userRepository;
     private final VehicleMapper vehicleMapper;
+    private final PrimaryVehiclePolicy primaryVehiclePolicy;
 
     @Override
     @Transactional
@@ -43,6 +46,7 @@ public class VehicleServiceImpl implements VehicleService {
         }
         Vehicle vehicle = vehicleMapper.toEntity(request);
         vehicle.setUser(resolveOwner(request.userId()));
+        primaryVehiclePolicy.onAssigned(vehicle);
         return vehicleMapper.toResponse(vehicleRepository.save(vehicle));
     }
 
@@ -75,7 +79,14 @@ public class VehicleServiceImpl implements VehicleService {
         }
         vehicleMapper.updateEntity(vehicle, request);
         // PUT replaces the full resource, so an omitted userId clears the owner.
+        Long previousOwnerId = vehicle.getUser() != null ? vehicle.getUser().getId() : null;
         vehicle.setUser(resolveOwner(request.userId()));
+        if (!Objects.equals(previousOwnerId, request.userId())) {
+            // Ownership transfer: the previous owner's primary moves on, the nickname stays with them.
+            primaryVehiclePolicy.onReleased(vehicle, previousOwnerId);
+            vehicle.setNickname(null);
+            primaryVehiclePolicy.onAssigned(vehicle);
+        }
         // Flush so @UpdateTimestamp is applied (and constraint violations surface) before responding.
         vehicleRepository.flush();
         return vehicleMapper.toResponse(vehicle);
@@ -88,6 +99,9 @@ public class VehicleServiceImpl implements VehicleService {
     public void deleteVehicle(Long id) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("Vehicle", id));
+        if (vehicle.getUser() != null) {
+            primaryVehiclePolicy.onReleased(vehicle, vehicle.getUser().getId());
+        }
         vehicleRepository.delete(vehicle);
     }
 

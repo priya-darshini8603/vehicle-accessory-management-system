@@ -2,10 +2,12 @@ package org.example.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
+import java.time.Year;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Objects;
@@ -16,7 +18,14 @@ import java.util.Set;
         name = "vehicles",
         uniqueConstraints = @UniqueConstraint(
                 name = Vehicle.UK_VEHICLE_NUMBER,
-                columnNames = "vehicle_number"))
+                columnNames = "vehicle_number"),
+        indexes = {
+                // "My garage" lists a customer's vehicles: WHERE user_id = ?. Without this index every
+                // garage request scans the whole vehicles table. Foreign keys are not indexed automatically.
+                @Index(name = "idx_vehicles_user_id", columnList = "user_id"),
+                // Lookups and grouping by make/model/year (catalog filters, reporting).
+                @Index(name = "idx_vehicles_make_model_year", columnList = "make, model, year")
+        })
 @Getter
 @Setter
 @NoArgsConstructor
@@ -49,6 +58,16 @@ public class Vehicle {
     @JoinColumn(name = "user_id")
     private User user;
 
+    // Customer-chosen label to tell their vehicles apart ("Dad's car", "Office bike").
+    @Column(length = 40)
+    private String nickname;
+
+    // The owner's default vehicle. PrimaryVehiclePolicy keeps exactly one per owner.
+    // @ColumnDefault lets ddl-auto=update add the NOT NULL column to a table that already has rows.
+    @ColumnDefault("false")
+    @Column(name = "primary_vehicle", nullable = false)
+    private boolean primaryVehicle;
+
     // The Many-To-Many Mapping table (vehicle_accessories).
     // LAZY to avoid N+1 on listings; fetch explicitly with JOIN FETCH / @EntityGraph when needed.
     // No cascade: accessories have an independent lifecycle and must already exist.
@@ -56,7 +75,10 @@ public class Vehicle {
     @JoinTable(
             name = "vehicle_accessories",
             joinColumns = @JoinColumn(name = "vehicle_id"),
-            inverseJoinColumns = @JoinColumn(name = "accessory_id")
+            inverseJoinColumns = @JoinColumn(name = "accessory_id"),
+            // The primary key (vehicle_id, accessory_id) serves lookups by vehicle. Lookups by
+            // accessory ("which vehicles does this fit", deleting an accessory's mappings) need their own index.
+            indexes = @Index(name = "idx_vehicle_accessories_accessory_id", columnList = "accessory_id")
     )
     private Set<Accessory> accessories = new HashSet<>();
 
@@ -72,6 +94,11 @@ public class Vehicle {
     // Shared by persistence callbacks and lookups so searches are case-insensitive.
     public static String normalizeVehicleNumber(String vehicleNumber) {
         return vehicleNumber == null ? null : vehicleNumber.trim().toUpperCase(Locale.ROOT);
+    }
+
+    // Manufacturers sell next year's model from mid-year, so current year + 1 is the latest real model year.
+    public static boolean isPlausibleModelYear(Integer year) {
+        return year == null || year <= Year.now().getValue() + 1;
     }
 
     @PrePersist

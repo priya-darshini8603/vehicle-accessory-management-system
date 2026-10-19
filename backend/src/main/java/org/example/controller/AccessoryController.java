@@ -7,11 +7,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.dto.AccessoryRequest;
 import org.example.dto.AccessoryResponse;
 import org.example.dto.PageResponse;
+import org.example.dto.PriceChangeResponse;
 import org.example.service.AccessoryService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,9 +39,11 @@ public class AccessoryController {
 
     // Adds one accessory item.
     @PostMapping
-    public ResponseEntity<AccessoryResponse> createAccessory(@Valid @RequestBody AccessoryRequest request) {
+    public ResponseEntity<AccessoryResponse> createAccessory(
+            @Valid @RequestBody AccessoryRequest request,
+            @AuthenticationPrincipal UserDetails currentUser) {
         log.debug("Received request to add an accessory");
-        AccessoryResponse created = accessoryService.createAccessory(request);
+        AccessoryResponse created = accessoryService.createAccessory(request, currentUser.getUsername());
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}").buildAndExpand(created.id()).toUri();
         return ResponseEntity.created(location).body(created);
@@ -63,9 +68,18 @@ public class AccessoryController {
     @PutMapping("/{id}")
     public ResponseEntity<AccessoryResponse> updateAccessory(
             @PathVariable Long id,
-            @Valid @RequestBody AccessoryRequest request) {
+            @Valid @RequestBody AccessoryRequest request,
+            @AuthenticationPrincipal UserDetails currentUser) {
         log.debug("Received request to update accessory with id {}", id);
-        return ResponseEntity.ok(accessoryService.updateAccessory(id, request));
+        return ResponseEntity.ok(accessoryService.updateAccessory(id, request, currentUser.getUsername()));
+    }
+
+    // Who changed the price or cost price of an accessory, and when. Newest first.
+    @GetMapping("/{id}/price-history")
+    public ResponseEntity<PageResponse<PriceChangeResponse>> getPriceHistory(
+            @PathVariable Long id,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(accessoryService.getPriceHistory(id, pageable));
     }
 
     // Deletes an accessory item, unmapping it from any vehicles first.

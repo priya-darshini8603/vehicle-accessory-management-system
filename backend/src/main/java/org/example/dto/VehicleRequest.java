@@ -1,5 +1,7 @@
 package org.example.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -41,6 +43,12 @@ public record VehicleRequest(
         vehicleNumber = Vehicle.normalizeVehicleNumber(vehicleNumber);
         make = trim(make);
         model = trim(model);
+    }
+
+    @JsonIgnore
+    @AssertTrue(message = "Year must not be later than next year")
+    public boolean isYearPlausible() {
+        return Vehicle.isPlausibleModelYear(year);
     }
 
     private static String trim(String value) {
