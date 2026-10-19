@@ -2,8 +2,8 @@ package org.example.repository;
 
 import java.time.Instant;
 import java.util.Optional;
-import org.example.entity.RefreshToken;
 import jakarta.persistence.LockModeType;
+import org.example.entity.RefreshToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -31,7 +31,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             @Param("now") Instant now
     );
 
-    @Modifying
+    // Flush pending changes before the bulk update and clear stale entities afterwards.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update RefreshToken token
             set token.revokedAt = :now

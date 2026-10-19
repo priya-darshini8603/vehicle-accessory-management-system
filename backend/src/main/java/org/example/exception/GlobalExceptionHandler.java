@@ -43,6 +43,7 @@ public class GlobalExceptionHandler {
         }
         ex.getBindingResult().getGlobalErrors()
                 .forEach(error -> fieldErrors.put(error.getObjectName(), messageOf(error.getDefaultMessage())));
+        // Logout/refresh with a missing or blank refresh token -> 400 "Refresh token is required".
         if (fieldErrors.getOrDefault("refreshToken", "").contains("Refresh token is required")) {
             return build(HttpStatus.BAD_REQUEST, "Refresh token is required", request, fieldErrors);
         }
@@ -106,12 +107,16 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
     }
 
+    // Invalid, revoked or expired refresh token -> 401.
     @ExceptionHandler(InvalidRefreshTokenException.class)
     public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(
             InvalidRefreshTokenException ex, HttpServletRequest request) {
         return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
     }
 
+    // Refresh token owned by another user -> 403 with its own message.
+    // This extends AccessDeniedException, and Spring picks the most specific handler,
+    // so it wins over handleAccessDenied below.
     @ExceptionHandler(RefreshTokenOwnershipException.class)
     public ResponseEntity<ErrorResponse> handleRefreshTokenOwnership(
             RefreshTokenOwnershipException ex, HttpServletRequest request) {

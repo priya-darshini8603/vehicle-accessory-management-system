@@ -87,11 +87,43 @@ class InventoryServiceImplTest {
 
         InventoryItemReport fastItem = report.products().getFirst();
         assertThat(fastItem.averageDailySales()).isEqualTo(1.0);
-        assertThat(fastItem.recommendedReorderQuantity()).isEqualTo(2);
+        assertThat(fastItem.recommendedReorderQuantity()).isEqualTo(12);
         assertThat(report.lowStockItems()).containsExactly(fastItem);
         assertThat(report.outOfStockItems()).extracting(InventoryItemReport::accessoryId).containsExactly(2L);
         assertThat(report.fastMovingProducts()).containsExactly(fastItem);
         assertThat(report.slowMovingProducts()).hasSize(1);
+    }
+
+    @Test
+    void reportIncludesSafetyStockInReorderRecommendation() {
+        Accessory accessory = accessory(1L, 5, 10, 10);
+        when(accessoryRepository.findAll()).thenReturn(List.of(accessory));
+        when(stockMovementRepository.sumSalesSince(any(), any())).thenReturn(List.of(sales(1L, 60L)));
+
+        InventoryReport report = service.generateReport(30);
+
+        assertThat(report.products().getFirst().averageDailySales()).isEqualTo(2.0);
+        assertThat(report.products().getFirst().recommendedReorderQuantity()).isEqualTo(25);
+    }
+
+    @Test
+    void reportTreatsNullMinimumAndLeadTimeAsZeroAndPreventsNegativeRecommendations() {
+        Accessory nullMinimum = accessory(1L, 5, 10, 10);
+        nullMinimum.setMinStockThreshold(null);
+        Accessory nullLeadTime = accessory(2L, 50, 10, 10);
+        nullLeadTime.setLeadTimeDays(null);
+        when(accessoryRepository.findAll()).thenReturn(List.of(nullMinimum, nullLeadTime));
+        when(stockMovementRepository.sumSalesSince(any(), any())).thenReturn(List.of(
+                sales(1L, 60L), sales(2L, 60L)));
+
+        InventoryReport report = service.generateReport(30);
+
+        assertThat(report.products()).extracting(InventoryItemReport::recommendedReorderQuantity)
+                .containsExactly(15, 0);
+        assertThat(report.products()).extracting(InventoryItemReport::minimumStock)
+                .containsExactly(0, 10);
+        assertThat(report.products()).extracting(InventoryItemReport::leadTimeDays)
+                .containsExactly(10, 0);
     }
 
     private static Accessory accessory(Long id, int stock, int minimum, int leadTime) {

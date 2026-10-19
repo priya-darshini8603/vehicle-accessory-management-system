@@ -80,22 +80,34 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Override
     @Transactional
     public void revoke(String rawToken, String email) {
+        if (rawToken == null || rawToken.isBlank()) {
+            throw new InvalidRefreshTokenException("Refresh token is required");
+        }
+
         String tokenHash = TokenUtils.hash(rawToken);
+
+        // 404: hash not found (covers random and non-existent tokens)
         RefreshToken token = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> new ResourceNotFoundException("Refresh token not found"));
 
+        // 403: belongs to another user (checked first so another user's token state is never leaked)
         if (!token.getUser().getEmail().equalsIgnoreCase(email)) {
+            log.warn("Logout rejected: refresh token does not belong to the authenticated user");
             throw new RefreshTokenOwnershipException();
         }
+
+        // 409: already revoked
         if (token.getRevokedAt() != null) {
             throw new DuplicateResourceException("Refresh token already revoked");
         }
 
+        // 401: expired
         Instant now = Instant.now();
         if (!token.getExpiresAt().isAfter(now)) {
             throw new InvalidRefreshTokenException("Refresh token expired");
         }
 
+        // Revoke only after every check has passed; the conditional update guards against races.
         if (refreshTokenRepository.revokeIfActiveForUser(
                 tokenHash, token.getUser().getId(), now) != 1) {
             throw new DuplicateResourceException("Refresh token already revoked");

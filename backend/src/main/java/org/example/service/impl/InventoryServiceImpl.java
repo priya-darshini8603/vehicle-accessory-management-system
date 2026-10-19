@@ -89,7 +89,10 @@ public class InventoryServiceImpl implements InventoryService {
                     int minimum = accessory.getMinStockThreshold() == null ? 0 : accessory.getMinStockThreshold();
                     int leadTime = accessory.getLeadTimeDays() == null ? 0 : accessory.getLeadTimeDays();
                     double averageDailySales = (double) sold / analysisPeriodDays;
-                    int recommended = Math.max(0, (int) Math.ceil(averageDailySales * leadTime - stock));
+                    // Cover expected sales during supplier lead time while retaining minimum stock as safety stock.
+                    // Subtract current stock and round up so the recommendation always reaches the target stock.
+                    int recommended = Math.max(0,
+                            (int) Math.ceil(averageDailySales * leadTime + minimum - stock));
                     return new InventoryItemReport(accessory.getId(), accessory.getName(), accessory.getCategory(),
                             stock, minimum, leadTime, sold, averageDailySales, recommended);
                 })
