@@ -1,23 +1,30 @@
 package org.example;
 
 import com.jayway.jsonpath.JsonPath;
-import org.junit.jupiter.api.Test;
+import io.jsonwebtoken.Jwts;
 import org.example.entity.RefreshToken;
 import org.example.repository.RefreshTokenRepository;
+import org.example.scheduler.RefreshTokenCleanupJob;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-import java.util.List;
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -40,6 +47,14 @@ class ApiIntegrationTest {
 
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private RefreshTokenCleanupJob cleanupJob;
+
+    @Autowired
+    private SecretKey jwtSigningKey;
+
+    private record Session(String accessToken, String refreshToken) {}
 
     @Test
     void fullAdminAndCustomerFlow() throws Exception {
@@ -119,7 +134,7 @@ class ApiIntegrationTest {
 
     @Test
     void orderPurchaseIsIdempotentAtomicAndRestoresStockOnce() throws Exception {
-        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
         String email = "buyer-" + suffix + "@test.local";
         String otherEmail = "other-" + suffix + "@test.local";
         String adminToken = login("admin@test.local", "AdminPassword123!");
@@ -188,7 +203,7 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.totalElements").value(1));
 
         mockMvc.perform(auth(json(put("/api/admin/accessories/{id}", firstAccessory),
-                        "{\"name\":\"First " + suffix + "\",\"category\":\"Test\",\"price\":200.00}"),
+                                "{\"name\":\"First " + suffix + "\",\"category\":\"Test\",\"price\":200.00}"),
                         adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.price").value(200.00));
@@ -218,7 +233,7 @@ class ApiIntegrationTest {
 
     @Test
     void concurrentOrdersCannotOversellTheSameAccessory() throws Exception {
-        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
         String email = "racer-" + suffix + "@test.local";
         String otherEmail = "racer-other-" + suffix + "@test.local";
         String adminToken = login("admin@test.local", "AdminPassword123!");
@@ -243,15 +258,15 @@ class ApiIntegrationTest {
                 start.await();
                 return mockMvc.perform(auth(json(post("/api/orders"),
                                 "{\"items\":[{\"accessoryId\":" + accessoryId + ",\"quantity\":1}]}")
-                                .header("Idempotency-Key", java.util.UUID.randomUUID().toString()), customerToken))
+                                .header("Idempotency-Key", UUID.randomUUID().toString()), customerToken))
                         .andReturn().getResponse().getStatus();
             };
             java.util.concurrent.Callable<Integer> placeSecondOrder = () -> {
                 ready.countDown();
                 start.await();
                 return mockMvc.perform(auth(json(post("/api/orders"),
-                                "{\"items\":[{\"accessoryId\":" + accessoryId + ",\"quantity\":1}]}")
-                                .header("Idempotency-Key", java.util.UUID.randomUUID().toString()),
+                                        "{\"items\":[{\"accessoryId\":" + accessoryId + ",\"quantity\":1}]}")
+                                        .header("Idempotency-Key", UUID.randomUUID().toString()),
                                 otherCustomerToken))
                         .andReturn().getResponse().getStatus();
             };
@@ -278,31 +293,6 @@ class ApiIntegrationTest {
                         """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
-    }
-
-    @Test
-    void logoutRevokesRefreshTokenButAccessTokenExpiresNaturally() throws Exception {
-        String loginBody = mockMvc.perform(json(post("/api/auth/login"),
-                        "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        String token = JsonPath.read(loginBody, "$.accessToken");
-        String refreshToken = JsonPath.read(loginBody, "$.refreshToken");
-
-        mockMvc.perform(auth(json(post("/api/auth/logout"),
-                        "{\"refreshToken\":\"" + refreshToken + "\"}"), token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Logout successful"));
-
-        mockMvc.perform(auth(get("/api/admin/accessories"), token))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(json(post("/api/auth/refresh"),
-                        "{\"refreshToken\":\"" + refreshToken + "\"}"))
-                .andExpect(status().isUnauthorized());
-
-        String freshToken = login("admin@test.local", "AdminPassword123!");
-        mockMvc.perform(auth(get("/api/admin/accessories"), freshToken)).andExpect(status().isOk());
     }
 
     @Test
@@ -379,133 +369,167 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.stockAfter").value(2));
     }
 
+    // =====================================================================================
+    // Logout: authenticated by the refresh token alone, idempotent, never leaks token state
+    // =====================================================================================
+
     @Test
-    void logoutWithoutTokenReturns401() throws Exception {
-        mockMvc.perform(post("/api/auth/logout")).andExpect(status().isUnauthorized());
+    void logoutRevokesRefreshTokenButAccessTokenExpiresNaturally() throws Exception {
+        Session session = loginSession("admin@test.local", "AdminPassword123!");
+
+        logout(session.refreshToken(), session.accessToken()).andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Logout successful"));
+
+        mockMvc.perform(auth(get("/api/admin/accessories"), session.accessToken()))
+                .andExpect(status().isOk());
+
+        refresh(session.refreshToken()).andExpect(status().isUnauthorized());
+
+        String freshToken = login("admin@test.local", "AdminPassword123!");
+        mockMvc.perform(auth(get("/api/admin/accessories"), freshToken)).andExpect(status().isOk());
     }
 
     @Test
-    void logoutRequiresRefreshTokenRequest() throws Exception {
-        String accessToken = login("admin@test.local", "AdminPassword123!");
+    void logoutWithOnlyTheRefreshTokenRevokesTheSession() throws Exception {
+        Session session = registerAndLogin();
 
-        mockMvc.perform(auth(json(post("/api/auth/logout"), "{}"), accessToken))
+        // No Authorization header at all.
+        logout(session.refreshToken(), null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Logout successful"));
+
+        assertThat(stored(session.refreshToken()).getRevokedAt()).isNotNull();
+        refresh(session.refreshToken()).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutWithExpiredAccessTokenStillRevokesTheSession() throws Exception {
+        // NOTE: this requires JwtAuthenticationFilter to let /api/auth/logout through when the
+        // bearer token is expired or invalid (see the filter note in the answer).
+        Session session = registerAndLogin();
+        String expiredAccessToken = expiredAccessToken("admin@test.local");
+
+        logout(session.refreshToken(), expiredAccessToken).andExpect(status().isOk());
+
+        assertThat(stored(session.refreshToken()).getRevokedAt()).isNotNull();
+    }
+
+    @Test
+    void logoutWithGarbageAccessTokenStillRevokesTheSession() throws Exception {
+        Session session = registerAndLogin();
+
+        logout(session.refreshToken(), "not.a.jwt").andExpect(status().isOk());
+
+        assertThat(stored(session.refreshToken()).getRevokedAt()).isNotNull();
+    }
+
+    @Test
+    void logoutIsIdempotent() throws Exception {
+        Session session = registerAndLogin();
+
+        logout(session.refreshToken(), null).andExpect(status().isOk());
+        Instant firstRevokedAt = stored(session.refreshToken()).getRevokedAt();
+
+        logout(session.refreshToken(), null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Logout successful"));
+
+        // The second call must not rewrite the revocation timestamp.
+        assertThat(stored(session.refreshToken()).getRevokedAt()).isEqualTo(firstRevokedAt);
+    }
+
+    @Test
+    void logoutWithUnknownTokenReturns200AndRevealsNothing() throws Exception {
+        for (String unknown : List.of("random-invalid-refresh-token", "unknown-refresh-token")) {
+            logout(unknown, null)
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("Logout successful"));
+        }
+    }
+
+    @Test
+    void logoutWithExpiredRefreshTokenReturns200AndLeavesTheRowUntouched() throws Exception {
+        Session session = registerAndLogin();
+        RefreshToken storedToken = stored(session.refreshToken());
+        storedToken.setExpiresAt(Instant.now().minusSeconds(1));
+        refreshTokenRepository.save(storedToken);
+
+        logout(session.refreshToken(), null).andExpect(status().isOk());
+
+        assertThat(stored(session.refreshToken()).getRevokedAt()).isNull();
+    }
+
+    @Test
+    void logoutOnlyRevokesTheGivenSessionNotTheOtherDevices() throws Exception {
+        String email = registerUser();
+        Session phone = loginSession(email, "customer-password");
+        Session laptop = loginSession(email, "customer-password");
+
+        logout(phone.refreshToken(), null).andExpect(status().isOk());
+
+        assertThat(stored(phone.refreshToken()).getRevokedAt()).isNotNull();
+        assertThat(stored(laptop.refreshToken()).getRevokedAt()).isNull();
+        refresh(laptop.refreshToken()).andExpect(status().isOk());
+    }
+
+    @Test
+    void logoutWithAnotherUsersAccessTokenRevokesByTokenPossessionOnly() throws Exception {
+        // The refresh token is the proof of identity. An unrelated valid access token neither
+        // helps nor blocks the call, and no ownership error is produced.
+        Session owner = registerAndLogin();
+        String otherUsersAccessToken = login("admin@test.local", "AdminPassword123!");
+
+        logout(owner.refreshToken(), otherUsersAccessToken).andExpect(status().isOk());
+
+        assertThat(stored(owner.refreshToken()).getRevokedAt()).isNotNull();
+    }
+
+    @Test
+    void logoutWithoutBodyReturns400() throws Exception {
+        mockMvc.perform(post("/api/auth/logout").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void logoutRequiresRefreshTokenField() throws Exception {
+        mockMvc.perform(json(post("/api/auth/logout"), "{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Refresh token is required"));
     }
 
     @Test
     void logoutRejectsBlankRefreshToken() throws Exception {
-        String accessToken = login("admin@test.local", "AdminPassword123!");
-
-        mockMvc.perform(auth(json(post("/api/auth/logout"), "{\"refreshToken\":\"   \"}"), accessToken))
+        mockMvc.perform(json(post("/api/auth/logout"), "{\"refreshToken\":\"   \"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Refresh token is required"));
     }
 
     @Test
-    void logoutWithoutBodyReturns400() throws Exception {
-        String accessToken = login("admin@test.local", "AdminPassword123!");
+    void logoutRejectsOversizedRefreshToken() throws Exception {
+        String oversized = "a".repeat(129);
 
-        mockMvc.perform(auth(post("/api/auth/logout").contentType(MediaType.APPLICATION_JSON), accessToken))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(json(post("/api/auth/logout"), "{\"refreshToken\":\"" + oversized + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.refreshToken").value("Refresh token is invalid"));
     }
 
     @Test
-    void successfulLogoutMarksStoredTokenRevoked() throws Exception {
-        String loginBody = mockMvc.perform(json(post("/api/auth/login"),
-                        "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        String accessToken = JsonPath.read(loginBody, "$.accessToken");
-        String refreshToken = JsonPath.read(loginBody, "$.refreshToken");
-
-        mockMvc.perform(auth(json(post("/api/auth/logout"),
-                        "{\"refreshToken\":\"" + refreshToken + "\"}"), accessToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Logout successful"));
-
-        RefreshToken reloaded = refreshTokenRepository.findByTokenHash(sha256(refreshToken)).orElseThrow();
-        assertThat(reloaded.getRevokedAt()).isNotNull();
+    void logoutRejectsMalformedJson() throws Exception {
+        mockMvc.perform(json(post("/api/auth/logout"), "{\"refreshToken\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Malformed or missing request body"));
     }
 
     @Test
-    void logoutRejectsAlreadyRevokedRefreshToken() throws Exception {
-        String loginBody = mockMvc.perform(json(post("/api/auth/login"),
-                        "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        String accessToken = JsonPath.read(loginBody, "$.accessToken");
-        String refreshToken = JsonPath.read(loginBody, "$.refreshToken");
-
-        mockMvc.perform(auth(json(post("/api/auth/logout"),
-                        "{\"refreshToken\":\"" + refreshToken + "\"}"), accessToken))
-                .andExpect(status().isOk());
-        mockMvc.perform(auth(json(post("/api/auth/logout"),
-                        "{\"refreshToken\":\"" + refreshToken + "\"}"), accessToken))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("Refresh token already revoked"));
+    void logoutIsPostOnly() throws Exception {
+        mockMvc.perform(get("/api/auth/logout")).andExpect(status().isUnauthorized());
     }
 
-    @Test
-    void logoutRejectsExpiredRefreshToken() throws Exception {
-        String loginBody = mockMvc.perform(json(post("/api/auth/login"),
-                        "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        String accessToken = JsonPath.read(loginBody, "$.accessToken");
-        String refreshToken = JsonPath.read(loginBody, "$.refreshToken");
-        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(sha256(refreshToken)).orElseThrow();
-        storedToken.setExpiresAt(Instant.now().minusSeconds(1));
-        refreshTokenRepository.save(storedToken);
-
-        mockMvc.perform(auth(json(post("/api/auth/logout"),
-                        "{\"refreshToken\":\"" + refreshToken + "\"}"), accessToken))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("Refresh token expired"));
-
-        // Reload from the database; the earlier entity instance would be stale.
-        RefreshToken reloaded = refreshTokenRepository.findByTokenHash(sha256(refreshToken)).orElseThrow();
-        assertThat(reloaded.getRevokedAt()).isNull();
-    }
-
-    @Test
-    void logoutRejectsRandomAndNonexistentRefreshTokens() throws Exception {
-        String accessToken = login("admin@test.local", "AdminPassword123!");
-
-        for (String invalidToken : List.of("random-invalid-refresh-token", "unknown-refresh-token")) {
-            mockMvc.perform(auth(json(post("/api/auth/logout"),
-                            "{\"refreshToken\":\"" + invalidToken + "\"}"), accessToken))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.message").value("Refresh token not found"));
-        }
-    }
-
-    @Test
-    void logoutRejectsRefreshTokenOwnedByAnotherUser() throws Exception {
-        mockMvc.perform(json(post("/api/auth/register"), """
-                        {"fullName":"Token Owner","email":"token-owner-check@example.com",
-                         "password":"customer-password"}
-                        """))
-                .andExpect(status().isCreated());
-        String ownerLoginBody = mockMvc.perform(json(post("/api/auth/login"), """
-                        {"email":"token-owner-check@example.com","password":"customer-password"}
-                        """))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        String ownerRefreshToken = JsonPath.read(ownerLoginBody, "$.refreshToken");
-        String otherUserAccessToken = login("admin@test.local", "AdminPassword123!");
-
-        mockMvc.perform(auth(json(post("/api/auth/logout"),
-                        "{\"refreshToken\":\"" + ownerRefreshToken + "\"}"), otherUserAccessToken))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message")
-                        .value("Refresh token does not belong to authenticated user"));
-
-        // Reload from the database to prove the owner's token was not revoked.
-        RefreshToken reloaded = refreshTokenRepository
-                .findByTokenHash(sha256(ownerRefreshToken)).orElseThrow();
-        assertThat(reloaded.getRevokedAt()).isNull();
-    }
+    // =====================================================================================
+    // Refresh: rotation, replay detection, grace window, absolute lifetime
+    // =====================================================================================
 
     @Test
     void refreshTokenIsHashedRotatedExpiresAndRevokedOnLogout() throws Exception {
@@ -516,14 +540,12 @@ class ApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String accessToken = JsonPath.read(loginBody, "$.accessToken");
         String refreshToken = JsonPath.read(loginBody, "$.refreshToken");
-        String refreshHash = sha256(refreshToken);
-        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(refreshHash).orElseThrow();
+        RefreshToken storedToken = stored(refreshToken);
         assertThat(storedToken.getTokenHash())
                 .isNotEqualTo(refreshToken)
                 .hasSize(64);
 
-        String refreshedBody = mockMvc.perform(json(post("/api/auth/refresh"),
-                        "{\"refreshToken\":\"" + refreshToken + "\"}"))
+        String refreshedBody = refresh(refreshToken)
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         String replacementRefreshToken = JsonPath.read(refreshedBody, "$.refreshToken");
@@ -531,30 +553,232 @@ class ApiIntegrationTest {
         assertThat(replacementRefreshToken).isNotEqualTo(refreshToken);
         assertThat(replacementAccessToken).isNotEqualTo(accessToken);
 
-        mockMvc.perform(json(post("/api/auth/refresh"),
-                        "{\"refreshToken\":\"" + refreshToken + "\"}"))
-                .andExpect(status().isUnauthorized());
+        // Immediate replay falls inside the grace window: rejected, nothing else is revoked.
+        refresh(refreshToken).andExpect(status().isUnauthorized());
 
-        mockMvc.perform(auth(json(post("/api/auth/logout"),
-                                "{\"refreshToken\":\"" + replacementRefreshToken + "\"}"),
-                        replacementAccessToken))
-                .andExpect(status().isOk());
-        mockMvc.perform(json(post("/api/auth/refresh"),
-                        "{\"refreshToken\":\"" + replacementRefreshToken + "\"}"))
-                .andExpect(status().isUnauthorized());
+        logout(replacementRefreshToken, replacementAccessToken).andExpect(status().isOk());
+        refresh(replacementRefreshToken).andExpect(status().isUnauthorized());
 
         String expiringLogin = mockMvc.perform(json(post("/api/auth/login"),
                         "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         String expiringToken = JsonPath.read(expiringLogin, "$.refreshToken");
-        RefreshToken expiringEntity = refreshTokenRepository.findByTokenHash(sha256(expiringToken)).orElseThrow();
+        RefreshToken expiringEntity = stored(expiringToken);
         expiringEntity.setExpiresAt(Instant.now().minusSeconds(1));
         refreshTokenRepository.save(expiringEntity);
-        mockMvc.perform(json(post("/api/auth/refresh"),
-                        "{\"refreshToken\":\"" + expiringToken + "\"}"))
-                .andExpect(status().isUnauthorized());
+        refresh(expiringToken).andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void rotatedTokenInheritsTheOriginalSessionExpiry() throws Exception {
+        Session session = registerAndLogin();
+        RefreshToken original = stored(session.refreshToken());
+        // Simulate a session that is 20 days old: only 10 days remain.
+        original.setExpiresAt(Instant.now().plus(Duration.ofDays(10)));
+        refreshTokenRepository.save(original);
+        Instant expectedExpiry = stored(session.refreshToken()).getExpiresAt();
+
+        String body = refresh(session.refreshToken()).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String replacement = JsonPath.read(body, "$.refreshToken");
+
+        assertThat(stored(replacement).getExpiresAt()).isEqualTo(expectedExpiry);
+
+        // And it stays capped across a second rotation.
+        String secondBody = refresh(replacement).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String secondReplacement = JsonPath.read(secondBody, "$.refreshToken");
+        assertThat(stored(secondReplacement).getExpiresAt()).isEqualTo(expectedExpiry);
+    }
+
+    @Test
+    void sessionCannotBeRefreshedPastItsAbsoluteExpiry() throws Exception {
+        Session session = registerAndLogin();
+        RefreshToken original = stored(session.refreshToken());
+        original.setExpiresAt(Instant.now().minusSeconds(1));
+        refreshTokenRepository.save(original);
+
+        refresh(session.refreshToken()).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void replayOutsideGraceWindowRevokesEveryActiveSessionOfTheUser() throws Exception {
+        String email = registerUser();
+        Session stolen = loginSession(email, "customer-password");
+        Session otherDevice = loginSession(email, "customer-password");
+
+        // Legitimate rotation of the first session.
+        String rotatedBody = refresh(stolen.refreshToken()).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String replacement = JsonPath.read(rotatedBody, "$.refreshToken");
+
+        // Age the spent token so the replay is clearly not a network retry.
+        RefreshToken spent = stored(stolen.refreshToken());
+        spent.setRevokedAt(Instant.now().minusSeconds(60));
+        refreshTokenRepository.save(spent);
+
+        refresh(stolen.refreshToken()).andExpect(status().isUnauthorized());
+
+        // Everything the user still held is dead, including the newest token and other devices.
+        assertThat(stored(replacement).getRevokedAt()).isNotNull();
+        assertThat(stored(otherDevice.refreshToken()).getRevokedAt()).isNotNull();
+        refresh(replacement).andExpect(status().isUnauthorized());
+        refresh(otherDevice.refreshToken()).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void replayOutsideGraceWindowDoesNotTouchOtherUsers() throws Exception {
+        Session victimlessUser = registerAndLogin();
+        Session attackedUser = registerAndLogin();
+
+        String rotatedBody = refresh(attackedUser.refreshToken()).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat((String) JsonPath.read(rotatedBody, "$.refreshToken")).isNotBlank();
+        RefreshToken spent = stored(attackedUser.refreshToken());
+        spent.setRevokedAt(Instant.now().minusSeconds(60));
+        refreshTokenRepository.save(spent);
+
+        refresh(attackedUser.refreshToken()).andExpect(status().isUnauthorized());
+
+        assertThat(stored(victimlessUser.refreshToken()).getRevokedAt()).isNull();
+        refresh(victimlessUser.refreshToken()).andExpect(status().isOk());
+    }
+
+    @Test
+    void replayWithinGraceWindowRejectsOnlyTheRetryAndKeepsTheNewToken() throws Exception {
+        Session session = registerAndLogin();
+
+        String rotatedBody = refresh(session.refreshToken()).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String replacement = JsonPath.read(rotatedBody, "$.refreshToken");
+
+        // Double submit right after the rotation.
+        refresh(session.refreshToken()).andExpect(status().isUnauthorized());
+
+        assertThat(stored(replacement).getRevokedAt()).isNull();
+        refresh(replacement).andExpect(status().isOk());
+    }
+
+    @Test
+    void refreshWithExpiredTokenDoesNotRevokeOtherSessions() throws Exception {
+        String email = registerUser();
+        Session expiring = loginSession(email, "customer-password");
+        Session healthy = loginSession(email, "customer-password");
+        RefreshToken entity = stored(expiring.refreshToken());
+        entity.setExpiresAt(Instant.now().minusSeconds(1));
+        refreshTokenRepository.save(entity);
+
+        refresh(expiring.refreshToken()).andExpect(status().isUnauthorized());
+
+        assertThat(stored(healthy.refreshToken()).getRevokedAt()).isNull();
+        refresh(healthy.refreshToken()).andExpect(status().isOk());
+    }
+
+    @Test
+    void refreshAfterLogoutOfThatTokenIsRejected() throws Exception {
+        Session session = registerAndLogin();
+        logout(session.refreshToken(), null).andExpect(status().isOk());
+
+        refresh(session.refreshToken())
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Refresh token is invalid, expired, or revoked"));
+    }
+
+    @Test
+    void refreshRejectsUnknownBlankMissingAndOversizedTokens() throws Exception {
+        refresh("never-issued-token").andExpect(status().isUnauthorized());
+        refresh("   ").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Refresh token is required"));
+        mockMvc.perform(json(post("/api/auth/refresh"), "{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Refresh token is required"));
+        refresh("a".repeat(129)).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.refreshToken").value("Refresh token is invalid"));
+    }
+
+    @Test
+    void concurrentRefreshWithTheSameTokenLetsExactlyOneThrough() throws Exception {
+        Session session = registerAndLogin();
+        String body = "{\"refreshToken\":\"" + session.refreshToken() + "\"}";
+
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(2);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        MockHttpServletResponse firstResponse;
+        MockHttpServletResponse secondResponse;
+        try {
+            java.util.concurrent.Callable<MockHttpServletResponse> call = () -> {
+                ready.countDown();
+                start.await();
+                return mockMvc.perform(json(post("/api/auth/refresh"), body))
+                        .andReturn().getResponse();
+            };
+            var first = executor.submit(call);
+            var second = executor.submit(call);
+            assertThat(ready.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            firstResponse = first.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            secondResponse = second.get(20, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        List<MockHttpServletResponse> responses = List.of(firstResponse, secondResponse);
+        List<MockHttpServletResponse> winners = responses.stream().filter(r -> r.getStatus() == 200).toList();
+        List<MockHttpServletResponse> losers = responses.stream().filter(r -> r.getStatus() != 200).toList();
+
+        // Single-use rotation: exactly one request wins. The loser is a plain rejection
+        // (401, or 409 if the database surfaces the row-lock conflict), never a 5xx.
+        assertThat(winners).hasSize(1);
+        assertThat(losers).hasSize(1);
+        assertThat(losers.getFirst().getStatus()).isIn(401, 409);
+
+        // The race loser was inside the grace window, so the winner's token must still work.
+        String winnerRefreshToken = JsonPath.read(winners.getFirst().getContentAsString(), "$.refreshToken");
+        assertThat(stored(winnerRefreshToken).getRevokedAt()).isNull();
+        refresh(winnerRefreshToken).andExpect(status().isOk());
+    }
+
+
+    // Cleanup job
+
+    @Test
+    void cleanupJobDeletesOnlyTokensStaleForMoreThanTheRetentionPeriod() throws Exception {
+        String email = registerUser();
+        Session revokedLongAgo = loginSession(email, "customer-password");
+        Session revokedRecently = loginSession(email, "customer-password");
+        Session expiredLongAgo = loginSession(email, "customer-password");
+        Session expiredRecently = loginSession(email, "customer-password");
+        Session active = loginSession(email, "customer-password");
+
+        Instant now = Instant.now();
+        update(revokedLongAgo.refreshToken(), t -> t.setRevokedAt(now.minus(Duration.ofDays(8))));
+        update(revokedRecently.refreshToken(), t -> t.setRevokedAt(now.minus(Duration.ofDays(6))));
+        update(expiredLongAgo.refreshToken(), t -> t.setExpiresAt(now.minus(Duration.ofDays(8))));
+        update(expiredRecently.refreshToken(), t -> t.setExpiresAt(now.minus(Duration.ofDays(1))));
+
+        cleanupJob.purgeStaleTokens();
+
+        assertThat(exists(revokedLongAgo.refreshToken())).isFalse();
+        assertThat(exists(expiredLongAgo.refreshToken())).isFalse();
+        assertThat(exists(revokedRecently.refreshToken())).isTrue();
+        assertThat(exists(expiredRecently.refreshToken())).isTrue();
+        assertThat(exists(active.refreshToken())).isTrue();
+
+        // The surviving active session still works after the purge.
+        refresh(active.refreshToken()).andExpect(status().isOk());
+    }
+
+    @Test
+    void cleanupJobIsSafeWhenThereIsNothingToDelete() {
+        cleanupJob.purgeStaleTokens();
+        cleanupJob.purgeStaleTokens();
+    }
+
+    // =====================================================================================
+    // Other auth edge cases
+    // =====================================================================================
 
     @Test
     void tamperedTokenReturns401() throws Exception {
@@ -562,6 +786,13 @@ class ApiIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer not.a.jwt"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Invalid or expired token"));
+    }
+
+    @Test
+    void expiredAccessTokenIsStillRejectedOnProtectedEndpoints() throws Exception {
+        // Opening up logout must not weaken any other endpoint.
+        mockMvc.perform(auth(get("/api/admin/accessories"), expiredAccessToken("admin@test.local")))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -605,6 +836,27 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Administrators cannot remove their own ADMIN role"));
     }
 
+    @Test
+    void loginIgnoresAStaleAuthorizationHeader() throws Exception {
+        mockMvc.perform(auth(json(post("/api/auth/login"),
+                                "{\"email\":\"admin@test.local\",\"password\":\"AdminPassword123!\"}"),
+                        expiredAccessToken("admin@test.local")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void refreshIgnoresAStaleAuthorizationHeader() throws Exception {
+        Session session = registerAndLogin();
+
+        mockMvc.perform(auth(json(post("/api/auth/refresh"),
+                        "{\"refreshToken\":\"" + session.refreshToken() + "\"}"), "not.a.jwt"))
+                .andExpect(status().isOk());
+    }
+
+    // =====================================================================================
+    // Helpers
+    // =====================================================================================
+
     private long createAccessory(String token, String name, String category) throws Exception {
         return idOf(mockMvc.perform(auth(json(post("/api/admin/accessories"),
                         "{\"name\":\"" + name + "\",\"category\":\"" + category + "\",\"price\":999.00}"), token))
@@ -621,12 +873,70 @@ class ApiIntegrationTest {
     }
 
     private String login(String email, String password) throws Exception {
+        return loginSession(email, password).accessToken();
+    }
+
+    private Session loginSession(String email, String password) throws Exception {
         String body = mockMvc.perform(json(post("/api/auth/login"),
                         "{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andReturn().getResponse().getContentAsString();
-        return JsonPath.read(body, "$.accessToken");
+        return new Session(JsonPath.read(body, "$.accessToken"), JsonPath.read(body, "$.refreshToken"));
+    }
+
+    /** Registers a unique customer so token-family tests never interfere with each other. */
+    private String registerUser() throws Exception {
+        String email = "session-" + UUID.randomUUID().toString().substring(0, 8) + "@test.local";
+        mockMvc.perform(json(post("/api/auth/register"),
+                        "{\"fullName\":\"Session User\",\"email\":\"" + email
+                                + "\",\"password\":\"customer-password\"}"))
+                .andExpect(status().isCreated());
+        return email;
+    }
+
+    private Session registerAndLogin() throws Exception {
+        return loginSession(registerUser(), "customer-password");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions refresh(String refreshToken) throws Exception {
+        return mockMvc.perform(json(post("/api/auth/refresh"),
+                "{\"refreshToken\":\"" + refreshToken + "\"}"));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions logout(String refreshToken, String accessToken)
+            throws Exception {
+        MockHttpServletRequestBuilder request = json(post("/api/auth/logout"),
+                "{\"refreshToken\":\"" + refreshToken + "\"}");
+        return mockMvc.perform(accessToken == null ? request : auth(request, accessToken));
+    }
+
+    private RefreshToken stored(String rawRefreshToken) throws Exception {
+        return refreshTokenRepository.findByTokenHash(sha256(rawRefreshToken)).orElseThrow();
+    }
+
+    private boolean exists(String rawRefreshToken) throws Exception {
+        return refreshTokenRepository.findByTokenHash(sha256(rawRefreshToken)).isPresent();
+    }
+
+    private void update(String rawRefreshToken, java.util.function.Consumer<RefreshToken> change)
+            throws Exception {
+        RefreshToken token = stored(rawRefreshToken);
+        change.accept(token);
+        refreshTokenRepository.save(token);
+    }
+
+    /** A correctly signed access token that expired an hour ago. */
+    private String expiredAccessToken(String subject) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(subject)
+                .id(UUID.randomUUID().toString())
+                .claim("roles", List.of("ROLE_ADMIN"))
+                .issuedAt(Date.from(now.minus(Duration.ofHours(2))))
+                .expiration(Date.from(now.minus(Duration.ofHours(1))))
+                .signWith(jwtSigningKey)
+                .compact();
     }
 
     private static long idOf(String json) {
@@ -645,4 +955,5 @@ class ApiIntegrationTest {
     private static MockHttpServletRequestBuilder auth(MockHttpServletRequestBuilder request, String token) {
         return request.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
     }
+
 }

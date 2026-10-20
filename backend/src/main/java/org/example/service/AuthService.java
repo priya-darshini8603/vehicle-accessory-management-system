@@ -5,7 +5,6 @@ import org.example.dto.LoginRequest;
 import org.example.dto.RegisterRequest;
 import org.example.dto.UserResponse;
 
-// Auth methods for login and sign-up.
 public interface AuthService {
 
     UserResponse register(RegisterRequest request);
@@ -14,5 +13,5 @@ public interface AuthService {
 
     AuthResponse refresh(String refreshToken);
 
-    void logout(String refreshToken, String email);
+    void logout(String refreshToken);
 }

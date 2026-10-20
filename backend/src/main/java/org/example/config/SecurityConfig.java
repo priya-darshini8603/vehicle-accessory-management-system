@@ -1,4 +1,3 @@
-
 package org.example.config;
 
 import lombok.RequiredArgsConstructor;
@@ -90,11 +89,14 @@ public class SecurityConfig {
                             .authenticationEntryPoint(authenticationEntryPoint)
                             .accessDeniedHandler(accessDeniedHandler))
                     .authorizeHttpRequests(auth -> auth
+                            // Logout is open: possession of the refresh token is the proof of identity,
+                            // so a user with an expired access token can still end their session.
                             .requestMatchers(
                                     HttpMethod.POST,
                                     "/api/auth/register",
                                     "/api/auth/login",
-                                    "/api/auth/refresh"
+                                    "/api/auth/refresh",
+                                    "/api/auth/logout"
                             ).permitAll()
                             .requestMatchers("/error").permitAll()
 
@@ -109,7 +111,7 @@ public class SecurityConfig {
                             .requestMatchers("/api/me/**").hasAnyRole("ADMIN", "CUSTOMER")
                             .requestMatchers(HttpMethod.POST, "/api/pricing/quote").hasAnyRole("ADMIN", "CUSTOMER")
 
-                            // Everything else, including POST /api/auth/logout, needs a valid token.
+                            // Everything else needs a valid access token.
                             .anyRequest().authenticated())
                     .headers(Customizer.withDefaults())
                     .addFilterBefore(

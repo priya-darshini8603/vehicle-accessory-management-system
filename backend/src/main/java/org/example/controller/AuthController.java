@@ -11,7 +11,6 @@ import org.example.dto.UserResponse;
 import org.example.service.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,11 +42,13 @@ public class AuthController {
         return ResponseEntity.ok(authService.refresh(request.refreshToken()));
     }
 
+    /**
+     * Authenticated by the refresh token alone; no access token is required.
+     */
     @PostMapping("/logout")
     public ResponseEntity<MessageResponse> logout(
-            Authentication authentication,
             @Valid @RequestBody RefreshTokenRequest request) {
-        authService.logout(request.refreshToken(), authentication.getName());
+        authService.logout(request.refreshToken());
         return ResponseEntity.ok(new MessageResponse("Logout successful"));
     }
 }

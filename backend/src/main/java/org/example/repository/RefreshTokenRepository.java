@@ -2,10 +2,8 @@ package org.example.repository;
 
 import java.time.Instant;
 import java.util.Optional;
-import jakarta.persistence.LockModeType;
 import org.example.entity.RefreshToken;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,10 +12,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select token from RefreshToken token where token.tokenHash = :tokenHash")
-    Optional<RefreshToken> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
-
+    /**
+     * Single-use consumption: succeeds for exactly one caller even when requests race.
+     * Returns 1 if this call revoked the token, 0 otherwise.
+     */
     @Modifying
     @Query("""
             update RefreshToken token
@@ -31,19 +29,29 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             @Param("now") Instant now
     );
 
-    // Flush pending changes before the bulk update and clear stale entities afterwards.
+    /**
+     * Replay response: revokes every still-active refresh token of the user.
+     * Flushes pending changes first and clears the persistence context afterwards.
+     */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update RefreshToken token
             set token.revokedAt = :now
-            where token.tokenHash = :tokenHash
-              and token.user.id = :userId
+            where token.user.id = :userId
               and token.revokedAt is null
               and token.expiresAt > :now
             """)
-    int revokeIfActiveForUser(
-            @Param("tokenHash") String tokenHash,
+    int revokeAllActiveForUser(
             @Param("userId") Long userId,
             @Param("now") Instant now
     );
+
+    // Removes tokens revoked or expired before the cutoff
+    @Modifying
+    @Query("""
+            delete from RefreshToken token
+            where (token.revokedAt is not null and token.revokedAt < :cutoff)
+               or token.expiresAt < :cutoff
+            """)
+    int deleteStale(@Param("cutoff") Instant cutoff);
 }

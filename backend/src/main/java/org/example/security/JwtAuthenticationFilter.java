@@ -1,4 +1,3 @@
-
 package org.example.security;
 
 import io.jsonwebtoken.JwtException;
@@ -7,12 +6,14 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Set;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.service.JwtService;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
@@ -32,15 +33,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String INVALID_TOKEN = "Invalid or expired token";
 
+    /** POST endpoints that don't require access-token authentication. */
+    private static final Set<String> ACCESS_TOKEN_FREE_PATHS = Set.of(
+            "/api/auth/register",
+            "/api/auth/login",
+            "/api/auth/refresh",
+            "/api/auth/logout");
+
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
-    //Writes the standard 401 error body when a supplied token is rejected
+    // Returns the standard 401 response.
     private final AuthenticationEntryPoint authenticationEntryPoint;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return "/api/auth/refresh".equals(request.getServletPath());
+        if (!HttpMethod.POST.matches(request.getMethod())) {
+            return false;
+        }
+
+        String path = request.getServletPath();
+
+        if (path == null || path.isBlank()) {
+            path = request.getRequestURI()
+                    .substring(request.getContextPath().length());
+        }
+
+        return ACCESS_TOKEN_FREE_PATHS.contains(path);
     }
 
     @Override
@@ -63,18 +82,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String email = jwtService.extractUsername(token);
 
             if (email == null || email.isBlank()) {
-                reject(request, response, new BadCredentialsException(INVALID_TOKEN));
+                reject(
+                        request,
+                        response,
+                        new BadCredentialsException(INVALID_TOKEN));
                 return;
             }
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                // Loading the user on every request means deleted users and role changes take effect
-                // immediately, rather than when the token expires.
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                // Apply user/role changes immediately.
+                UserDetails userDetails =
+                        userDetailsService.loadUserByUsername(email);
 
                 if (!jwtService.isTokenValid(token, userDetails)) {
-                    reject(request, response, new BadCredentialsException(INVALID_TOKEN));
+                    reject(
+                            request,
+                            response,
+                            new BadCredentialsException(INVALID_TOKEN));
                     return;
                 }
 
@@ -85,12 +110,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 userDetails.getAuthorities());
 
                 authentication.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request));
+                        new WebAuthenticationDetailsSource()
+                                .buildDetails(request));
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                SecurityContextHolder.getContext()
+                        .setAuthentication(authentication);
             }
-        } catch (JwtException | IllegalArgumentException | AuthenticationException exception) {
-            reject(request, response, new BadCredentialsException(INVALID_TOKEN, exception));
+
+        } catch (JwtException
+                 | IllegalArgumentException
+                 | AuthenticationException exception) {
+
+            reject(
+                    request,
+                    response,
+                    new BadCredentialsException(INVALID_TOKEN, exception));
             return;
         }
 
@@ -102,6 +136,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             AuthenticationException exception)
             throws IOException, ServletException {
+
         log.debug("Rejected bearer token", exception);
         SecurityContextHolder.clearContext();
         authenticationEntryPoint.commence(request, response, exception);

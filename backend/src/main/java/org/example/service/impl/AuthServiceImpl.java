@@ -11,6 +11,7 @@ import org.example.dto.UserResponse;
 import org.example.entity.User;
 import org.example.enums.Role;
 import org.example.exception.DuplicateResourceException;
+import org.example.exception.InvalidRefreshTokenException;
 import org.example.mapper.UserMapper;
 import org.example.repository.UserRepository;
 import org.example.service.AuthService;
@@ -111,8 +112,13 @@ public class AuthServiceImpl implements AuthService {
                 userMapper.toResponse(user));
     }
 
+    /**
+     * noRollbackFor is required: when a replayed token is detected, rotate() revokes the user's
+     * whole token family and then throws. Without it the surrounding transaction would roll the
+     * revocation back and the replay protection would silently do nothing.
+     */
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public AuthResponse refresh(String token) {
 
         RefreshTokenService.RotatedToken rotated =
@@ -137,11 +143,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public void logout(String token, String email) {
+    public void logout(String token) {
 
-        refreshTokenService.revoke(token, email);
+        refreshTokenService.revoke(token);
 
-        log.info("User logged out successfully");
+        log.info("Logout processed");
     }
 
     private String normalizeEmail(String email) {

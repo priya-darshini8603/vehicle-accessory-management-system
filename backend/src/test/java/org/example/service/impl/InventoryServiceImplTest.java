@@ -6,6 +6,7 @@ import org.example.dto.StockMovementRequest;
 import org.example.entity.Accessory;
 import org.example.enums.StockMovementType;
 import org.example.exception.BusinessRuleException;
+import org.example.mapper.InventoryMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.StockMovementRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,7 @@ class InventoryServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new InventoryServiceImpl(accessoryRepository, stockMovementRepository,
+                new InventoryMapper(),
                 Clock.fixed(Instant.parse("2026-10-19T00:00:00Z"), ZoneOffset.UTC));
     }
 

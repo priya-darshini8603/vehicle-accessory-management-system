@@ -108,20 +108,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
     }
 
-    // Invalid, revoked or expired refresh token -> 401.
+    // Invalid, revoked, expired or replayed refresh token on /refresh -> 401.
+    // Logout never throws this: it is idempotent and reveals nothing about token state.
     @ExceptionHandler(InvalidRefreshTokenException.class)
     public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(
             InvalidRefreshTokenException ex, HttpServletRequest request) {
         return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
-    }
-
-    // Refresh token owned by another user -> 403 with its own message.
-    // This extends AccessDeniedException, and Spring picks the most specific handler,
-    // so it wins over handleAccessDenied below.
-    @ExceptionHandler(RefreshTokenOwnershipException.class)
-    public ResponseEntity<ErrorResponse> handleRefreshTokenOwnership(
-            RefreshTokenOwnershipException ex, HttpServletRequest request) {
-        return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
     // Safety net for races the service-level duplicate checks cannot catch (two concurrent inserts).
