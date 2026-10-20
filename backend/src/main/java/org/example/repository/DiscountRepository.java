@@ -24,14 +24,15 @@ public interface DiscountRepository extends JpaRepository<Discount, Long> {
     boolean existsByCodeAndIdNot(String code, Long id);
 
     // Every automatic promotion that could apply to a cart, in one query regardless of cart size.
-    // categories must be lower-cased.
+    // Categories are stored lower-case (DiscountRequest), so callers must pass lower-cased values and the
+    // comparison stays on the raw column, which idx_discounts_category can serve.
     @Query("""
             SELECT d FROM Discount d
             WHERE d.active = true AND d.code IS NULL
               AND (d.validFrom IS NULL OR d.validFrom <= :now)
               AND (d.validTo IS NULL OR d.validTo > :now)
               AND (d.scope = :all
-                   OR (d.scope = :category AND LOWER(d.category) IN :categories)
+                   OR (d.scope = :category AND d.category IN :categories)
                    OR (d.scope = :accessory AND d.accessory.id IN :accessoryIds))
             """)
     List<Discount> findLiveAutomaticDiscounts(

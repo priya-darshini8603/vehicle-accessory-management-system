@@ -13,8 +13,11 @@ import org.example.repository.AccessoryRepository;
 import org.example.repository.DiscountRepository;
 import org.example.service.DiscountService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -53,7 +56,16 @@ public class DiscountServiceImpl implements DiscountService {
     @Override
     @Transactional
     public DiscountResponse updateDiscount(Long id, DiscountRequest request) {
+        if (request.version() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "version is required: send the version from your last GET of this discount");
+        }
         Discount discount = findDiscount(id);
+        // @Version alone only catches saves that overlap in flight. Comparing the client's version also
+        // catches an edit based on a stale read (admin A and B both GET, A saves, then B saves).
+        if (!request.version().equals(discount.getVersion())) {
+            throw new ObjectOptimisticLockingFailureException(Discount.class, id);
+        }
         if (request.code() != null && discountRepository.existsByCodeAndIdNot(request.code(), id)) {
             throw duplicateCode(request.code());
         }

@@ -11,17 +11,54 @@ Admins manage the catalog; customers look up compatible accessories by vehicle n
 
 ```bash
 cd backend
+cp .env.example .env          # then fill in JWT_SECRET and ADMIN_PASSWORD (see below)
 docker compose up -d          # PostgreSQL on localhost:5432 (vams_db / postgres / admin)
-./mvnw spring-boot:run        # http://localhost:8080
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev   # http://localhost:8080
 ```
 
-With no profile set, the app runs the **`dev`** profile (`application-dev.properties`). That profile has a local DB
-password, a dev JWT secret, and a bootstrap admin:
+There is **no default profile**. Started without one, the app refuses to boot because no JWT secret is set. That's
+deliberate, so a deployment can't silently run with development settings.
 
-| | |
+The `dev` profile (`application-dev.properties`) holds no secrets. It reads them from `backend/.env`, which is
+git-ignored. `.env.example` lists every variable; these two have no value until you set them:
+
+| Key | What to put there |
 |---|---|
-| Admin email | `admin@vams.local` |
-| Admin password | `Admin@12345678` |
+| `JWT_SECRET` | `openssl rand -base64 48` |
+| `ADMIN_PASSWORD` | 12+ characters, your own choice |
+
+Real environment variables override `.env`. The bootstrap admin is created only if that email doesn't exist yet; an
+existing account's password is never changed.
+
+### Demo data
+
+For a presentation, set `DEMO_SEED=true` and `DEMO_CUSTOMER_PASSWORD` in `backend/.env` and start the dev profile on an
+**empty** database (`docker compose down -v && docker compose up -d` wipes the local one). `DemoDataSeeder` then
+creates 8 accessories with cost, tax and stock levels, 4 vehicles with compatibility mappings, 4 past orders (they
+drive the inventory report), two
+promotions, a live coupon (`FESTIVE25`) and an expired one (`NEWYEAR10`), plus `demo.customer@vams.local` with two
+vehicles in their garage. It does nothing if accessories already exist. A demo run changes stock and tokens, so
+reset the database before each rehearsal and before presenting.
+
+In Postman, set `demoCustomerPassword` in the environment and run the **00 Demo (seeded data)** folder on its own. It
+walks through the garage, model search, quotes, coupons, inventory, price history, token rotation and logout in order.
+
+### Schema migrations
+
+Flyway owns the schema. On startup it applies the versioned SQL in `backend/src/main/resources/db/migration`, and
+Hibernate then only **validates** that the entities match (`DDL_AUTO=validate`); it never changes tables itself.
+
+| Migration | What it does |
+|---|---|
+| `V1__baseline.sql` | The full schema (10 tables, 17 indexes, 9 foreign keys), dumped from PostgreSQL 16 |
+| `V2__lowercase_discount_categories.sql` | Lower-cases existing discount categories (they are now stored lower-case) |
+
+- **Change the schema** by adding `V3__short_description.sql` alongside the entity change. Never edit a migration that has
+  already run anywhere; Flyway rejects a changed checksum.
+- **A database created earlier by `ddl-auto=update`** (no `flyway_schema_history` table) is baselined at V1 on first
+  start, then V2 onwards run.
+- **Tests** use H2 with `create-drop` and Flyway off, because the migrations are PostgreSQL SQL. They were verified
+  against PostgreSQL on a fresh database, an upgraded pre-Flyway database, and the full Postman collection.
 
 Run the tests (they use in-memory H2 and need no database):
 
@@ -31,7 +68,7 @@ Run the tests (they use in-memory H2 and need no database):
 
 ## Configuration
 
-Outside your machine, set `SPRING_PROFILES_ACTIVE=prod` (or any profile other than `dev`) and provide the following:
+Outside your machine, set `SPRING_PROFILES_ACTIVE=prod` (any profile except `dev`) and provide the following as real environment variables. Never ship a `.env` file:
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
@@ -40,10 +77,21 @@ Outside your machine, set `SPRING_PROFILES_ACTIVE=prod` (or any profile other th
 | `DB_PASSWORD` | ✔ | – | |
 | `JWT_SECRET` | ✔ | – | Base64 HMAC key, ≥ 32 bytes: `openssl rand -base64 48`. The app refuses to start without it. |
 | `JWT_EXPIRATION_MS` | | `1800000` (30 min) | Token lifetime |
-| `REFRESH_TOKEN_EXPIRATION_MS` | | `2592000000` (30 days) | Refresh-token lifetime |
+| `REFRESH_TOKEN_EXPIRATION_MS` | | `2592000000` (30 days) | Absolute refresh-session lifetime from login; rotation does not extend it |
+| `REFRESH_TOKEN_REUSE_GRACE_MS` | | `5000` | Reuse of a spent refresh token inside this window is a retry; after it, all the user's refresh tokens are revoked |
+| `REFRESH_TOKEN_CLEANUP_CRON` | | `0 30 3 * * *` | Daily purge of old revoked/expired refresh tokens |
+| `REFRESH_TOKEN_CLEANUP_RETENTION_DAYS` | | `7` | How long revoked/expired refresh tokens are kept before the purge |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | | – | Bootstrap admin, created at startup if the email doesn't exist yet (password ≥ 12 chars) |
-| `DDL_AUTO` | | `update` | Hibernate schema mode |
+| `ADMIN_FULL_NAME` | | `System Administrator` | Display name of the bootstrap admin |
+| `DDL_AUTO` | | `validate` | Hibernate schema check; Flyway applies the schema. Keep `validate` |
 | `PORT` | | `8080` | |
+| `DEFAULT_TAX_RATE` | | `18.00` | GST % for accessories without their own tax rate |
+| `MAX_VEHICLES_PER_CUSTOMER` | | `10` | Garage size limit per customer |
+| `INVENTORY_ANALYSIS_CRON` | | `0 0 0 * * *` | When the daily stock report and low-stock warnings run |
+| `INVENTORY_ANALYSIS_TIME_ZONE` | | `UTC` | Time zone for that schedule |
+
+[`backend/.env.example`](backend/.env.example) lists every variable with its local value; copy it to `backend/.env` for
+development.
 
 ## Roles
 
@@ -61,8 +109,8 @@ Every endpoint except register, login, and refresh needs `Authorization: Bearer 
 |---|---|---|---|
 | POST | `/api/auth/register` | `{fullName, email, password (12–72), phoneNumber?}` | `201` user |
 | POST | `/api/auth/login` | `{email, password}` | `200 {accessToken, refreshToken, tokenType, expiresIn, user}` |
-| POST | `/api/auth/refresh` | `{refreshToken}` | `200` with a new access token and rotated refresh token; the old refresh token cannot be reused |
-| POST | `/api/auth/logout` | `{refreshToken}` (optional; needs `Authorization: Bearer`) | `200`. Revokes the supplied refresh token. If omitted, all refresh tokens for the authenticated user are revoked. Access tokens remain valid until they expire (30 minutes by default). |
+| POST | `/api/auth/refresh` | `{refreshToken}` | `200` with a new access token and a rotated refresh token. The session ends 30 days after login; rotation does not extend it. Reusing a spent token returns `401`; after the `REFRESH_TOKEN_REUSE_GRACE_MS` retry window (5 s), reuse also revokes every active refresh token of that user (theft detection). |
+| POST | `/api/auth/logout` | `{refreshToken}` (required; no access token needed) | `200`. Revokes that refresh token only, so other devices stay signed in. Idempotent: an unknown, expired or already revoked token also returns `200`. A missing or blank token returns `400`. Access tokens stay valid until they expire (30 minutes by default). |
 
 Refresh tokens are opaque and stored only as SHA-256 hashes. They are checked for expiry and revocation whenever used, and rotated on every refresh request.
 
@@ -87,7 +135,7 @@ Refresh tokens are opaque and stored only as SHA-256 hashes. They are checked fo
 ### Inventory (ADMIN)
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/api/admin/inventory/accessories/{id}/movements` | `{type, quantityDelta, note}` records a non-zero ADJUSTMENT and updates stock atomically; a reason is required. The only valid types are SALE (negative delta), RESTORATION (positive delta), and ADJUSTMENT (either sign, but non-zero). SALE movements are created by orders; RESTORATION movements are created when an order is cancelled. |
+| POST | `/api/admin/inventory/accessories/{id}/movements` | `{type: "ADJUSTMENT", quantityDelta, note}` changes stock atomically (non-zero delta, either sign; stock can't go negative) and needs a reason in `note`. Only `ADJUSTMENT` is accepted here: `SALE` movements come from orders and `RESTORATION` from order cancellations. |
 | GET | `/api/admin/inventory/accessories/{id}/movements?page=0&size=20` | Paged stock ledger, newest first, including stock before/after and actor. |
 | GET | `/api/admin/inventory/report?days=30` | Stock dashboard, lead-time demand, reorder points, stock cover, low/out-of-stock lists, replenishment suggestions, fast/slow movers, and the latest movements for a 1–365 day sales window. |
 
@@ -212,17 +260,20 @@ released by its previous owner) you can add it, but only when make, model and ye
 |---|---|---|
 | POST | `/api/admin/discounts` | See body below → `201` |
 | GET | `/api/admin/discounts` | Paged. `live` = active and inside its validity window now. |
-| GET / PUT / DELETE | `/api/admin/discounts/{id}` | Send `"active": false` to pause one without deleting it |
+| GET / PUT / DELETE | `/api/admin/discounts/{id}` | PUT is a full replacement and must include the `version` from your last GET: a stale version means someone else saved in between and returns `409`, so no edit is silently overwritten (no version is `400`). Send `"active": false` to pause a discount without deleting it. |
 
 ```json
 {"name": "Festive sale", "code": "FESTIVE25", "type": "PERCENTAGE", "value": 25,
  "scope": "CATEGORY", "category": "Interior", "maxDiscountAmount": 500, "minQuantity": 1,
- "validFrom": "2026-10-20T00:00:00Z", "validTo": "2026-11-05T00:00:00Z", "active": true}
+ "validFrom": "2026-10-20T00:00:00Z", "validTo": "2026-11-05T00:00:00Z", "active": true,
+ "version": 0}
 ```
 
 - No `code` = automatic promotion. With a `code` = coupon, applied only when the customer enters it.
 - `type`: `PERCENTAGE` (≤ 100, optional `maxDiscountAmount` cap per unit) or `FLAT` (amount off per unit).
 - `scope`: `ALL` (no target), `CATEGORY` (needs `category`), `ACCESSORY` (needs `accessoryId`).
+- `category` is stored lower-case and matches accessory categories regardless of case.
+- `version` comes back in every response. Leave it out on POST; send the value you last read on PUT.
 - `minQuantity` gives bulk pricing ("15% off when you buy 4").
 
 Accessories also take optional `costPrice` (the price can't be lower) and `taxRate` (GST %, default 18 via
@@ -259,30 +310,34 @@ Every error uses the same response body. `fieldErrors` appears only on validatio
 | 401 | Missing, invalid or expired token; wrong login credentials |
 | 403 | Authenticated, but the role isn't allowed |
 | 404 | Unknown vehicle, accessory, user or mapping |
-| 409 | Duplicate vehicle number, email or discount code; the record was changed by a concurrent request |
-| 422 | Business rule violation (e.g. an admin demoting themselves) |
+| 409 | Duplicate vehicle number, email or discount code; an `Idempotency-Key` reused for a different order; cancelling an order twice; the record was changed by a concurrent request |
+| 422 | Business rule violation (e.g. an admin demoting themselves, insufficient stock for an order, an invalid or expired coupon, a full garage) |
 | 500 | Unexpected error (details are logged, never returned) |
 
 ## Postman
 
-Import `backend/postman/vehicle-accessory-management-system.postman_collection.json`. Run it top to bottom, or with
-the Collection Runner: it logs in, saves tokens and ids, runs every endpoint including the error cases, and cleans up.
+The Postman collection and environment live in `backend/postman/`, which is git-ignored: they are kept locally and
+shared within the team outside the repository. Import `vehicle-accessory-management-system.postman_collection.json` and
+`vams-local.postman_environment.json`, then run it top to bottom or with the Collection Runner. It logs in, saves tokens
+and ids, and runs every endpoint including the error cases. Run the numbered folders against a database without demo
+data; run **00 Demo (seeded data)** on its own against a freshly seeded one.
 
 ## Project layout
 
 ```
 backend/src/main/java/org/example
-├── config/       SecurityConfig, AdminBootstrap
-├── controller/   Auth, Vehicle, Accessory, Compatibility, UserAdmin
+├── config/       SecurityConfig, JwtKeyConfig, AdminBootstrap, DemoDataSeeder (dev), ClockConfig, SchedulingConfig
+├── controller/   Auth, Vehicle, Accessory, Compatibility, UserAdmin, Garage, Pricing, Discount, Inventory, Order
 ├── dto/          Request/response records (validated), PageResponse, ErrorResponse
-├── entity/       User, Vehicle, Accessory, Order, OrderItem, StockMovement, Discount, PriceChange
-├── enums/        Role, OrderStatus, InventoryProcessingStatus, StockMovementType
+├── entity/       User, Vehicle, Accessory, Order, OrderItem, StockMovement, Discount, PriceChange, RefreshToken
+├── enums/        Role, OrderStatus, InventoryProcessingStatus, StockMovementType, DiscountType, DiscountScope
 ├── exception/    Domain exceptions + GlobalExceptionHandler
 ├── mapper/       Entity ↔ DTO mapping
 ├── pricing/      PriceCalculator: pure pricing rules (no database access)
 ├── repository/   Spring Data repositories (fetch joins / entity graphs avoid N+1)
-├── security/     JWT service + filter, key config, 401/403 JSON handlers
-└── service/      Interfaces + impl/ (including order processing)
+├── scheduler/    RefreshTokenCleanupJob (daily purge of old refresh tokens)
+├── security/     JWT service + filter, 401/403 JSON handlers, token hashing
+└── service/      Interfaces + impl/ (orders, pricing, garage, inventory incl. the daily InventoryAnalysisJob)
 ```
 
 More detail: [docs/FEATURE_DESIGN.md](docs/FEATURE_DESIGN.md) (why each feature exists, rules and edge cases) and

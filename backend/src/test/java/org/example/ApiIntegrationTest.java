@@ -62,7 +62,7 @@ class ApiIntegrationTest {
 
         // Self-registration cannot grant ADMIN, even for a "privileged-looking" domain.
         mockMvc.perform(json(post("/api/auth/register"), """
-                        {"fullName":"Asha","email":"asha@mercedes-benz.com","password":"customer-password"}
+                        {"fullName":"Asha","email":"asha@mercedes-benz.com","password":"customer-password","phoneNumber":"+91 98765 43210"}
                         """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.role").value("CUSTOMER"));
@@ -140,11 +140,11 @@ class ApiIntegrationTest {
         String adminToken = login("admin@test.local", "AdminPassword123!");
         mockMvc.perform(json(post("/api/auth/register"),
                         "{\"fullName\":\"Buyer\",\"email\":\"" + email
-                                + "\",\"password\":\"customer-password\"}"))
+                                + "\",\"password\":\"customer-password\",\"phoneNumber\":\"+91 98765 43210\"}"))
                 .andExpect(status().isCreated());
         mockMvc.perform(json(post("/api/auth/register"),
                         "{\"fullName\":\"Other\",\"email\":\"" + otherEmail
-                                + "\",\"password\":\"customer-password\"}"))
+                                + "\",\"password\":\"customer-password\",\"phoneNumber\":\"+91 98765 43210\"}"))
                 .andExpect(status().isCreated());
         String customerToken = login(email, "customer-password");
         String otherToken = login(otherEmail, "customer-password");
@@ -239,11 +239,11 @@ class ApiIntegrationTest {
         String adminToken = login("admin@test.local", "AdminPassword123!");
         mockMvc.perform(json(post("/api/auth/register"),
                         "{\"fullName\":\"Racer\",\"email\":\"" + email
-                                + "\",\"password\":\"customer-password\"}"))
+                                + "\",\"password\":\"customer-password\",\"phoneNumber\":\"+91 98765 43210\"}"))
                 .andExpect(status().isCreated());
         mockMvc.perform(json(post("/api/auth/register"),
                         "{\"fullName\":\"Racer Two\",\"email\":\"" + otherEmail
-                                + "\",\"password\":\"customer-password\"}"))
+                                + "\",\"password\":\"customer-password\",\"phoneNumber\":\"+91 98765 43210\"}"))
                 .andExpect(status().isCreated());
         String customerToken = login(email, "customer-password");
         String otherCustomerToken = login(otherEmail, "customer-password");
@@ -806,7 +806,7 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.fieldErrors.password").exists());
 
         mockMvc.perform(json(post("/api/auth/register"), """
-                        {"fullName":"Admin Again","email":"Admin@Test.local","password":"another-password"}
+                        {"fullName":"Admin Again","email":"Admin@Test.local","password":"another-password","phoneNumber":"+91 98765 43210"}
                         """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Email is already registered"));
@@ -816,7 +816,7 @@ class ApiIntegrationTest {
     void adminCanPromoteCustomerButNotDemoteSelf() throws Exception {
         String adminToken = login("admin@test.local", "AdminPassword123!");
         long userId = idOf(mockMvc.perform(json(post("/api/auth/register"), """
-                        {"fullName":"Ravi","email":"ravi@example.com","password":"customer-password"}
+                        {"fullName":"Ravi","email":"ravi@example.com","password":"customer-password","phoneNumber":"+91 98765 43210"}
                         """))
                 .andReturn().getResponse().getContentAsString());
 
@@ -890,7 +890,7 @@ class ApiIntegrationTest {
         String email = "session-" + UUID.randomUUID().toString().substring(0, 8) + "@test.local";
         mockMvc.perform(json(post("/api/auth/register"),
                         "{\"fullName\":\"Session User\",\"email\":\"" + email
-                                + "\",\"password\":\"customer-password\"}"))
+                                + "\",\"password\":\"customer-password\",\"phoneNumber\":\"+91 98765 43210\"}"))
                 .andExpect(status().isCreated());
         return email;
     }

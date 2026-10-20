@@ -23,5 +23,7 @@ public record DiscountResponse(
         // Active and inside its validity window right now
         boolean live,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        // Send back on PUT; see DiscountRequest.version
+        Long version
 ) {}

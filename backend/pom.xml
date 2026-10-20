@@ -51,6 +51,16 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Schema migrations: versioned SQL in src/main/resources/db/migration -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
         <!-- Security & Validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -279,7 +279,8 @@ class GarageAndPricingIntegrationTest {
 
     private String registerAndLogin(String email) throws Exception {
         mockMvc.perform(json(post("/api/auth/register"),
-                        "{\"fullName\":\"Test User\",\"email\":\"" + email + "\",\"password\":\"customer-password\"}"))
+                        "{\"fullName\":\"Test User\",\"email\":\"" + email
+                                + "\",\"password\":\"customer-password\",\"phoneNumber\":\"+91 98765 43210\"}"))
                 .andExpect(status().isCreated());
         return login(email, "customer-password");
     }

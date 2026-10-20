@@ -17,6 +17,7 @@ import org.example.enums.DiscountType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Locale;
 
 // Payload for creating or replacing a discount (admin only). Leave code empty for an automatic promotion.
 public record DiscountRequest(
@@ -59,12 +60,26 @@ public record DiscountRequest(
         Instant validTo,
 
         // Defaults to true
-        Boolean active
+        Boolean active,
+
+        // Required on PUT: the version from the last GET. A stale version means someone else saved in
+        // between, and the update is rejected with 409 instead of silently overwriting their change.
+        // Ignored on POST.
+        Long version
 ) {
+    // Create requests carry no version.
+    public DiscountRequest(String name, String code, DiscountType type, BigDecimal value, DiscountScope scope,
+                           String category, Long accessoryId, BigDecimal maxDiscountAmount, Integer minQuantity,
+                           Instant validFrom, Instant validTo, Boolean active) {
+        this(name, code, type, value, scope, category, accessoryId, maxDiscountAmount, minQuantity,
+                validFrom, validTo, active, null);
+    }
+
     public DiscountRequest {
         name = name == null ? null : name.trim();
         code = Discount.normalizeCode(code);
-        category = category == null || category.isBlank() ? null : category.trim();
+        // Stored lower-case so the quote query can compare the raw column and use idx_discounts_category.
+        category = category == null || category.isBlank() ? null : category.trim().toLowerCase(Locale.ROOT);
         minQuantity = minQuantity == null ? 1 : minQuantity;
         active = active == null || active;
     }

@@ -44,7 +44,8 @@ public class DiscountMapper {
                 discount.isActive(),
                 discount.isLiveAt(Instant.now()),
                 discount.getCreatedAt(),
-                discount.getUpdatedAt());
+                discount.getUpdatedAt(),
+                discount.getVersion());
     }
 
     public QuoteResponse.AppliedDiscount toApplied(Discount discount) {

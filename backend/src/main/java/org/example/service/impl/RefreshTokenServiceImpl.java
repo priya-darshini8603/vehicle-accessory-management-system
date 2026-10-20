@@ -58,6 +58,10 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Override
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public RotatedToken rotate(String rawToken) {
+        // The controller validates @NotBlank, but the service must not depend on it: hashing null throws NPE.
+        if (rawToken == null || rawToken.isBlank()) {
+            throw new InvalidRefreshTokenException();
+        }
         Instant now = Instant.now();
         String tokenHash = TokenUtils.hash(rawToken);
 
@@ -101,6 +105,10 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Override
     @Transactional
     public void revoke(String rawToken) {
+        // Logging out with no token has nothing to revoke; treat it as a no-op rather than an error.
+        if (rawToken == null || rawToken.isBlank()) {
+            return;
+        }
         int revoked = refreshTokenRepository.revokeIfActive(
                 TokenUtils.hash(rawToken),
                 Instant.now());

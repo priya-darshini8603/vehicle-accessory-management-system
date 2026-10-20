@@ -36,3 +36,8 @@ build/
 docs/
 
 postman/
+
+### Local secrets ###
+.env
+.env.*
+!.env.example

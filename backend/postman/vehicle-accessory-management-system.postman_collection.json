@@ -58,9 +58,1020 @@
     {
       "key": "accessoryId2",
       "value": ""
+    },
+    {
+      "key": "demoCustomerToken",
+      "value": ""
+    },
+    {
+      "key": "demoRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "oldRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "primaryVehicleId",
+      "value": ""
+    },
+    {
+      "key": "secondVehicleId",
+      "value": ""
+    },
+    {
+      "key": "matsId",
+      "value": ""
+    },
+    {
+      "key": "tyreId",
+      "value": ""
+    },
+    {
+      "key": "mudFlapsId",
+      "value": ""
+    },
+    {
+      "key": "roofRackId",
+      "value": ""
+    },
+    {
+      "key": "adminRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "customerRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "tyreDealId",
+      "value": ""
+    },
+    {
+      "key": "tyreDealBody",
+      "value": ""
     }
   ],
   "item": [
+    {
+      "name": "00 Demo (seeded data)",
+      "description": "Presentation walkthrough. Needs the dev profile with DEMO_SEED=true on an empty database (see README). Set demoCustomerPassword in the environment to the DEMO_CUSTOMER_PASSWORD from backend/.env. Run this folder on its own; the numbered folders below create their own data and conflict with seeded vehicle numbers.",
+      "item": [
+        {
+          "name": "Login as admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Admin role', () => pm.expect(body.user.role).to.eql('ADMIN'));",
+                  "pm.collectionVariables.set('adminToken', body.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as demo customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{demoCustomerEmail}}\",\n  \"password\": \"{{demoCustomerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Customer role', () => pm.expect(body.user.role).to.eql('CUSTOMER'));",
+                  "pm.collectionVariables.set('demoCustomerToken', body.accessToken);",
+                  "pm.collectionVariables.set('demoRefreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My garage: two vehicles, primary first",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const garage = pm.response.json();",
+                  "pm.test('Two vehicles', () => pm.expect(garage.length).to.eql(2));",
+                  "pm.test('Exactly one primary, listed first', () => { pm.expect(garage[0].primary).to.be.true; pm.expect(garage.filter(v => v.primary).length).to.eql(1); });",
+                  "pm.collectionVariables.set('primaryVehicleId', garage[0].id);",
+                  "pm.collectionVariables.set('secondVehicleId', garage[1].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accessories for my primary vehicle (no cost price shown)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles/{{primaryVehicleId}}/accessories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles",
+                "{{primaryVehicleId}}",
+                "accessories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const byName = n => body.compatibleAccessories.find(a => a.name === n);",
+                  "pm.test('Cost price is hidden from customers', () => body.compatibleAccessories.forEach(a => pm.expect(a).to.not.have.property('costPrice')));",
+                  "pm.collectionVariables.set('matsId', byName('All-Weather Floor Mats').id);",
+                  "pm.collectionVariables.set('tyreId', byName('Tyre 185/65 R15').id);",
+                  "pm.collectionVariables.set('mudFlapsId', byName('Mud Flaps').id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accessories for my second vehicle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles/{{secondVehicleId}}/accessories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles",
+                "{{secondVehicleId}}",
+                "accessories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('roofRackId', body.compatibleAccessories.find(a => a.name === 'Roof Rack').id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Model search: every Swift and what fits it",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/compatibility/models?name=swift",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compatibility",
+                "models"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "swift"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const results = pm.response.json();",
+                  "pm.test('Both Swifts found, case-insensitively', () => pm.expect(results.length).to.be.at.least(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: automatic discounts (Interior Week + 4-tyre deal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": {{primaryVehicleId}},\n  \"items\": [\n    {\"accessoryId\": {{matsId}}, \"quantity\": 1},\n    {\"accessoryId\": {{tyreId}}, \"quantity\": 4}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "pm.test('Interior Week on mats', () => pm.expect(q.lines[0].appliedDiscount.name).to.eql('Interior Week'));",
+                  "pm.test('Bulk tyre deal at 4 tyres', () => pm.expect(q.lines[1].appliedDiscount.name).to.eql('Buy 4 tyres, save 15%'));",
+                  "pm.test('Totals reconcile', () => pm.expect(Math.round((q.subtotal - q.discountTotal + q.taxTotal) * 100)).to.eql(Math.round(q.grandTotal * 100)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: FESTIVE25 coupon beats them (best single discount, capped)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"couponCode\": \"festive25\",\n  \"vehicleId\": {{primaryVehicleId}},\n  \"items\": [\n    {\"accessoryId\": {{matsId}}, \"quantity\": 1},\n    {\"accessoryId\": {{tyreId}}, \"quantity\": 4}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "pm.test('Coupon applied', () => pm.expect(q.couponApplied).to.be.true);",
+                  "pm.test('Cap of 1000 per tyre respected', () => pm.expect(q.lines[1].unitDiscount).to.eql(1000));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: expired coupon is rejected with a clear message (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"couponCode\": \"NEWYEAR10\",\n  \"items\": [{\"accessoryId\": {{matsId}}, \"quantity\": 1}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 422', () => pm.response.to.have.status(422));",
+                  "pm.test('Says expired', () => pm.expect(pm.response.json().message).to.include('has expired'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: wrong-fit and out-of-stock warnings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": {{primaryVehicleId}},\n  \"items\": [\n    {\"accessoryId\": {{roofRackId}}, \"quantity\": 1},\n    {\"accessoryId\": {{mudFlapsId}}, \"quantity\": 1}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "pm.test('Roof rack flagged as not compatible with the Swift', () => pm.expect(q.lines[0].warnings.join()).to.include('Not listed as compatible'));",
+                  "pm.test('Mud flaps flagged out of stock', () => pm.expect(q.lines[1].warnings).to.include('Out of stock'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot use the admin API (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/report?days=30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: inventory report (low stock, reorder, fast movers)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/report?days=30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('Mud flaps out of stock', () => pm.expect(r.outOfStockItems.map(i => i.name)).to.include('Mud Flaps'));",
+                  "pm.test('Roof rack low on stock', () => pm.expect(r.lowStockItems.map(i => i.name)).to.include('Roof Rack'));",
+                  "pm.test('Phone mount is a fast mover', () => pm.expect(r.fastMovingProducts.map(i => i.name)).to.include('Magnetic Phone Mount'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: restock mud flaps (audited adjustment)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{mudFlapsId}}/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "{{mudFlapsId}}",
+                "movements"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"ADJUSTMENT\",\n  \"quantityDelta\": 20,\n  \"note\": \"Supplier delivery (live demo)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Stock after = 20', () => pm.expect(pm.response.json().stockAfter).to.eql(20));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: price history of the mats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories/{{matsId}}/price-history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories",
+                "{{matsId}}",
+                "price-history"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Initial price recorded', () => pm.expect(pm.response.json().totalElements).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: discounts and coupons",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts?size=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts"
+              ],
+              "query": [
+                {
+                  "key": "size",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Live flag shown', () => pm.expect(pm.response.json().content[0]).to.have.property('live'));",
+                  "const deal = pm.response.json().content.find(d => d.name === 'Buy 4 tyres, save 15%');",
+                  "pm.test('Discounts expose a version for safe editing', () => pm.expect(deal.version).to.be.a('number'));",
+                  "pm.collectionVariables.set('tyreDealId', deal.id);",
+                  "// The full PUT body with the version we just read. Extending the end date is a real change (an identical",
+                  "// save is a no-op and keeps the version) that leaves every price unchanged.",
+                  "const body = (({name, code, type, value, scope, category, accessoryId, maxDiscountAmount, minQuantity, validFrom, validTo, active, version}) =>",
+                  "  ({name, code, type, value, scope, category, accessoryId, maxDiscountAmount, minQuantity, validFrom, validTo, active, version}))(deal);",
+                  "body.validTo = new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString();",
+                  "pm.collectionVariables.set('tyreDealBody', JSON.stringify(body));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: extend the tyre deal using the version just read (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts/{{tyreDealId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts",
+                "{{tyreDealId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{tyreDealBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Version moved on', () => pm.expect(pm.response.json().version).to.eql(JSON.parse(pm.collectionVariables.get('tyreDealBody')).version + 1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: a second save with the now-stale version is rejected (409)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts/{{tyreDealId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts",
+                "{{tyreDealId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{tyreDealBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Says reload and try again', () => pm.expect(pm.response.json().message).to.include('Reload and try again'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh: token rotates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{demoRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('oldRefreshToken', pm.collectionVariables.get('demoRefreshToken'));",
+                  "pm.collectionVariables.set('demoRefreshToken', body.refreshToken);",
+                  "pm.collectionVariables.set('demoCustomerToken', body.accessToken);",
+                  "pm.test('New refresh token issued', () => pm.expect(body.refreshToken).to.not.eql(pm.collectionVariables.get('oldRefreshToken')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout demo customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{demoRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh: the rotated-out token cannot be reused (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{oldRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "01 Auth",
       "description": "Register a customer and log in as admin and customer.",
@@ -209,7 +1220,8 @@
                   "const body = pm.response.json();",
                   "pm.test('Bearer token issued', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.accessToken).to.be.a('string'); });",
                   "pm.test('User is ADMIN', () => pm.expect(body.user.role).to.eql('ADMIN'));",
-                  "if (pm.response.code < 300) pm.collectionVariables.set('adminToken', pm.response.json().accessToken);"
+                  "if (pm.response.code < 300) pm.collectionVariables.set('adminToken', pm.response.json().accessToken);",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('adminRefreshToken', pm.response.json().refreshToken);"
                 ]
               }
             }
@@ -259,7 +1271,8 @@
                   "const body = pm.response.json();",
                   "pm.test('User is CUSTOMER', () => pm.expect(body.user.role).to.eql('CUSTOMER'));",
                   "if (pm.response.code < 300) pm.collectionVariables.set('customerToken', pm.response.json().accessToken);",
-                  "if (pm.response.code < 300) pm.collectionVariables.set('customerId', pm.response.json().user.id);"
+                  "if (pm.response.code < 300) pm.collectionVariables.set('customerId', pm.response.json().user.id);",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('customerRefreshToken', pm.response.json().refreshToken);"
                 ]
               }
             }
@@ -621,7 +1634,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"All-Weather Floor Mats\",\n  \"category\": \"Interior\",\n  \"price\": 1299.0,\n  \"description\": \"Rubber mats, set of 4 (sale)\",\n  \"stockQuantity\": 45\n}",
+              "raw": "{\n  \"name\": \"All-Weather Floor Mats\",\n  \"category\": \"Interior\",\n  \"price\": 1299.0,\n  \"description\": \"Rubber mats, set of 4 (sale)\",\n  \"stockQuantity\": 45,\n  \"stockAdjustmentReason\": \"Stock count corrected (Postman)\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -637,7 +1650,8 @@
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test('Price and description updated', () => { pm.expect(body.price).to.eql(1299); pm.expect(body.description).to.include('sale'); });"
+                  "pm.test('Price and description updated', () => { pm.expect(body.price).to.eql(1299); pm.expect(body.description).to.include('sale'); });",
+                  "pm.test('Stock change recorded with its reason', () => pm.expect(body.stockQuantity).to.eql(45));"
                 ]
               }
             }
@@ -1728,10 +2742,10 @@
     },
     {
       "name": "07 Cleanup",
-      "description": "Deletes what this run created so the collection can be run again.",
+      "description": "Deletes the test vehicle. Accessories with stock history are kept on purpose (audit trail), so this run leaves its two accessories behind; run against a scratch database.",
       "item": [
         {
-          "name": "Delete mapped accessory (detaches first)",
+          "name": "Delete accessory with stock history is refused (422)",
           "request": {
             "method": "DELETE",
             "header": [],
@@ -1754,14 +2768,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                  "pm.test('Status is 422', () => pm.response.to.have.status(422));",
+                  "pm.test('Explains the stock history rule', () => pm.expect(pm.response.json().message).to.include('stock movement'));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Vehicle now has one accessory",
+          "name": "Vehicle keeps both accessories",
           "request": {
             "method": "GET",
             "header": [],
@@ -1786,7 +2801,7 @@
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test('One accessory left', () => pm.expect(body.accessories).to.have.lengthOf(1));"
+                  "pm.test('Both accessories still mapped', () => pm.expect(body.accessories).to.have.lengthOf(2));"
                 ]
               }
             }
@@ -1916,13 +2931,18 @@
     },
     {
       "name": "08 Logout",
-      "description": "Revokes tokens. Runs last because it invalidates them.",
+      "description": "Logout revokes the given refresh token; no access token is needed. Access tokens are short-lived and keep working until they expire (30 minutes by default).",
       "item": [
         {
-          "name": "Logout customer",
+          "name": "Logout customer (refresh token only)",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/auth/logout",
               "host": [
@@ -1934,15 +2954,17 @@
                 "logout"
               ]
             },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{customerToken}}",
-                  "type": "string"
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              }
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -1952,32 +2974,72 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.test('Logout message', () => pm.expect(body.message).to.eql('Logout successful'));"
+                  "pm.test('Logout message', () => pm.expect(pm.response.json().message).to.eql('Logout successful'));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Revoked token is rejected (401)",
+          "name": "Logged-out refresh token cannot be used (401)",
           "request": {
-            "method": "GET",
-            "header": [],
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
-              "raw": "{{baseUrl}}/api/compatibility?vehicleNumber={{vehicleNumber}}",
+              "raw": "{{baseUrl}}/api/auth/refresh",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "compatibility"
-              ],
-              "query": [
-                {
-                  "key": "vehicleNumber",
-                  "value": "{{vehicleNumber}}"
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Access token still works until it expires (by design)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles"
               ]
             },
             "auth": {
@@ -1997,18 +3059,68 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 401', () => pm.response.to.have.status(401));",
-                  "pm.test('Error message', () => pm.expect(pm.response.json().message).to.eql(\"Token has been revoked. Please log in again.\"));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Logout without token (401)",
+          "name": "Logout again is idempotent (200)",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout without body (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/auth/logout",
               "host": [
@@ -2030,17 +3142,22 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Logout admin",
+          "name": "Logout with blank refresh token (400)",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/auth/logout",
               "host": [
@@ -2051,6 +3168,65 @@
                 "auth",
                 "logout"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"   \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on refreshToken', () => pm.expect(pm.response.json().fieldErrors).to.have.property('refreshToken'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{adminRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
