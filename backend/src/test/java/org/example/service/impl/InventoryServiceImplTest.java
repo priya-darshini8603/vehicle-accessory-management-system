@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -111,15 +113,21 @@ class InventoryServiceImplTest {
         InventoryReport report = service.generateReport(30);
 
         InventoryItemReport fastItem = report.products().getFirst();
-        assertThat(fastItem.averageDailySales()).isEqualTo(1.0);
-        assertThat(fastItem.leadTimeDemand()).isEqualTo(10.0);
-        assertThat(fastItem.reorderPoint()).isEqualTo(20.0);
-        assertThat(fastItem.stockCoverDays()).isEqualTo(8.0);
+        assertThat(fastItem.averageDailySales()).isEqualByComparingTo("1.0");
+        assertThat(fastItem.leadTimeDemand()).isEqualByComparingTo("10.0");
+        assertThat(fastItem.reorderPoint()).isEqualByComparingTo("20.0");
+        assertThat(fastItem.stockCoverDays()).isEqualByComparingTo("8.0");
         assertThat(fastItem.recommendedReorderQuantity()).isEqualTo(12);
         assertThat(report.lowStockItems()).containsExactly(fastItem);
         assertThat(report.outOfStockItems()).extracting(InventoryItemReport::accessoryId).containsExactly(2L);
         assertThat(report.fastMovingProducts()).containsExactly(fastItem);
         assertThat(report.slowMovingProducts()).hasSize(1);
+        assertThat(report.productsRequiringReorder()).extracting(InventoryItemReport::accessoryId)
+                .containsExactly(2L, 1L);
+        verify(stockMovementRepository, times(1)).sumSalesSince(StockMovementType.SALE,
+                Instant.parse("2026-09-19T00:00:00Z"));
+        verify(accessoryRepository, times(1)).findAll();
+        verify(accessoryRepository, never()).save(any());
     }
 
     @Test
@@ -133,8 +141,8 @@ class InventoryServiceImplTest {
 
         assertThat(report.products()).allSatisfy(item -> {
             assertThat(item.unitsSold()).isZero();
-            assertThat(item.averageDailySales()).isZero();
-            assertThat(item.leadTimeDemand()).isZero();
+            assertThat(item.averageDailySales()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(item.leadTimeDemand()).isEqualByComparingTo(BigDecimal.ZERO);
             assertThat(item.stockCoverDays()).isNull();
         });
         assertThat(report.products()).extracting(InventoryItemReport::recommendedReorderQuantity)
@@ -145,14 +153,21 @@ class InventoryServiceImplTest {
 
     @Test
     void reportIncludesSafetyStockInReorderRecommendation() {
-        Accessory accessory = accessory(1L, 5, 10, 10);
+        Accessory accessory = accessory(1L, 10, 5, 7);
         when(accessoryRepository.findAll()).thenReturn(List.of(accessory));
         when(stockMovementRepository.sumSalesSince(any(), any())).thenReturn(List.of(sales(1L, 60L)));
 
         InventoryReport report = service.generateReport(30);
+        InventoryItemReport item = report.products().getFirst();
 
-        assertThat(report.products().getFirst().averageDailySales()).isEqualTo(2.0);
-        assertThat(report.products().getFirst().recommendedReorderQuantity()).isEqualTo(25);
+        assertThat(item.unitsSold()).isEqualTo(60);
+        assertThat(item.averageDailySales()).isEqualByComparingTo("2.0");
+        assertThat(item.leadTimeDemand()).isEqualByComparingTo("14.0");
+        assertThat(item.reorderPoint()).isEqualByComparingTo("19.0");
+        assertThat(item.stockCoverDays()).isEqualByComparingTo("5.0");
+        assertThat(item.lowStock()).isTrue();
+        assertThat(item.outOfStock()).isFalse();
+        assertThat(item.recommendedReorderQuantity()).isEqualTo(9);
     }
 
     @Test
@@ -173,6 +188,32 @@ class InventoryServiceImplTest {
                 .containsExactly(0, 10);
         assertThat(report.products()).extracting(InventoryItemReport::leadTimeDays)
                 .containsExactly(10, 0);
+    }
+
+    @Test
+    void reportSortsFastSlowAndRecentlyUpdatedSectionsAndMarksReorderStatus() {
+        Accessory slowSeller = accessory(1L, 100, 5, 7);
+        slowSeller.setUpdatedAt(Instant.parse("2026-10-18T00:00:00Z"));
+        Accessory fastSeller = accessory(2L, 1, 5, 7);
+        fastSeller.setUpdatedAt(Instant.parse("2026-10-19T00:00:00Z"));
+        Accessory healthy = accessory(3L, 100, 0, 7);
+        healthy.setUpdatedAt(Instant.parse("2026-10-17T00:00:00Z"));
+        when(accessoryRepository.findAll()).thenReturn(List.of(slowSeller, fastSeller, healthy));
+        when(stockMovementRepository.sumSalesSince(any(), any())).thenReturn(List.of(
+                sales(1L, 1L), sales(2L, 90L), sales(3L, 0L)));
+
+        InventoryReport report = service.generateReport(30);
+
+        assertThat(report.fastMovingProducts()).extracting(InventoryItemReport::accessoryId)
+                .containsExactly(2L);
+        assertThat(report.slowMovingProducts()).extracting(InventoryItemReport::accessoryId)
+                .containsExactly(3L);
+        assertThat(report.recentlyUpdatedProducts()).extracting(InventoryItemReport::accessoryId)
+                .containsExactly(2L);
+        assertThat(report.productsRequiringReorder()).extracting(InventoryItemReport::accessoryId)
+                .containsExactly(2L);
+        assertThat(report.products().get(1).lowStock()).isTrue();
+        assertThat(report.products().get(2).lowStock()).isFalse();
     }
 
     private static Accessory accessory(Long id, int stock, int minimum, int leadTime) {

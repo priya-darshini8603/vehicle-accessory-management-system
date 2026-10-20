@@ -23,6 +23,7 @@ public record RegisterRequest(
                 message = "Password must contain 12 to 72 characters")
         String password,
 
+        @NotBlank(message = "Phone number is required")
         @Pattern(regexp = "^$|^[0-9+() -]{7,20}$",
                 message = "Invalid phone number")
         String phoneNumber

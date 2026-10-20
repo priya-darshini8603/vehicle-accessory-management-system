@@ -156,6 +156,24 @@ public class InventoryServiceImpl implements InventoryService {
                                                 InventoryItemReport::name))
                         .toList();
 
+        List<InventoryItemReport> recentlyUpdatedProducts =
+                products.stream()
+                        .filter(item -> item.updatedAt() != null)
+                        .sorted(Comparator.comparing(
+                                        InventoryItemReport::updatedAt,
+                                        Comparator.reverseOrder())
+                                .thenComparing(InventoryItemReport::name))
+                        .toList();
+
+        List<InventoryItemReport> productsRequiringReorder =
+                products.stream()
+                        .filter(item -> item.recommendedReorderQuantity() > 0)
+                        .sorted(Comparator.comparing(
+                                        InventoryItemReport::stockCoverDays,
+                                        Comparator.nullsFirst(Comparator.naturalOrder()))
+                                .thenComparing(InventoryItemReport::name))
+                        .toList();
+
         List<StockMovementResponse> recentMovements =
                 stockMovementRepository
                         .findTop20ByOrderByOccurredAtDescIdDesc()
@@ -171,6 +189,8 @@ public class InventoryServiceImpl implements InventoryService {
                 outOfStockItems,
                 topQuartile(fastMovingProducts),
                 topQuartile(slowMovingProducts),
+                topQuartile(recentlyUpdatedProducts),
+                productsRequiringReorder,
                 recentMovements
         );
     }
@@ -247,7 +267,9 @@ public class InventoryServiceImpl implements InventoryService {
                 .forEach(result ->
                         salesByAccessory.put(
                                 result.getAccessoryId(),
-                                result.getUnitsSold()));
+                        result.getUnitsSold() == null
+                                ? 0L
+                                : Math.max(0L, result.getUnitsSold())));
 
         return salesByAccessory;
     }

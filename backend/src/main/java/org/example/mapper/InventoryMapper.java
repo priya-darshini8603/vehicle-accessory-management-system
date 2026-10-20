@@ -7,8 +7,13 @@ import org.example.entity.StockMovement;
 import org.example.enums.StockMovementType;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 @Component
 public class InventoryMapper {
+
+    private static final int ANALYTICS_SCALE = 6;
 
     public StockMovement toMovement(
             Accessory accessory,
@@ -58,31 +63,28 @@ public class InventoryMapper {
                 0,
                 defaultValue(accessory.getLeadTimeDays()));
 
-        double averageDailySales =
-                (double) unitsSold / analysisPeriodDays;
+        BigDecimal averageDailySales =
+                decimal(unitsSold)
+                        .divide(BigDecimal.valueOf(analysisPeriodDays), ANALYTICS_SCALE, RoundingMode.HALF_UP);
 
-        double leadTimeDemand =
-                averageDailySales * leadTimeDays;
+        BigDecimal leadTimeDemand =
+                averageDailySales.multiply(BigDecimal.valueOf(leadTimeDays));
 
-        double reorderPoint =
-                leadTimeDemand + minimumStock;
+        BigDecimal reorderPoint =
+                leadTimeDemand.add(BigDecimal.valueOf(minimumStock));
 
-        Double stockCoverDays =
-                averageDailySales > 0
-                        ? stock / averageDailySales
+        BigDecimal stockCoverDays =
+                averageDailySales.signum() > 0
+                        ? BigDecimal.valueOf(stock).divide(averageDailySales, ANALYTICS_SCALE, RoundingMode.HALF_UP)
                         : null;
 
-        int recommendedReorderQuantity =
-                (int) Math.min(
-                        Integer.MAX_VALUE,
-                        Math.max(
-                                0,
-                                Math.ceil(reorderPoint - stock)));
+        int recommendedReorderQuantity = recommendedReorderQuantity(reorderPoint, stock);
 
         return new InventoryItemReport(
                 accessory.getId(),
                 accessory.getName(),
                 accessory.getCategory(),
+                accessory.getUpdatedAt(),
                 stock,
                 minimumStock,
                 leadTimeDays,
@@ -91,13 +93,28 @@ public class InventoryMapper {
                 leadTimeDemand,
                 reorderPoint,
                 stockCoverDays,
-                stock > 0 && stock <= minimumStock,
+                stock > 0 && BigDecimal.valueOf(stock).compareTo(reorderPoint) <= 0,
                 stock == 0,
                 recommendedReorderQuantity
         );
     }
 
-    private int defaultValue(Integer value) {
+    private static int recommendedReorderQuantity(BigDecimal reorderPoint, int stock) {
+        BigDecimal quantity = reorderPoint.subtract(BigDecimal.valueOf(stock));
+        if (quantity.signum() <= 0) {
+            return 0;
+        }
+        BigDecimal roundedQuantity = quantity.setScale(0, RoundingMode.CEILING);
+        return roundedQuantity.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) >= 0
+                ? Integer.MAX_VALUE
+                : roundedQuantity.intValueExact();
+    }
+
+    private static BigDecimal decimal(long value) {
+        return BigDecimal.valueOf(Math.max(0, value));
+    }
+
+    private static int defaultValue(Integer value) {
         return value == null ? 0 : value;
     }
 }
