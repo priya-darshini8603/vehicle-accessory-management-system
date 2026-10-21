@@ -65,7 +65,7 @@ class CompatibilityServiceImplTest {
     }
 
     @Test
-    void modelSearchTrimsEscapesWildcardsAndReturnsOnlyMappedAccessories() {
+    void modelSearchNormalizesToLowercasePrefixEscapesWildcardsAndReturnsOnlyMappedAccessories() {
         Vehicle vehicle = new Vehicle();
         vehicle.setId(1L);
         vehicle.setVehicleNumber("KA01AB1234");
@@ -73,7 +73,7 @@ class CompatibilityServiceImplTest {
         vehicle.setModel("Swift 100%_!");
         vehicle.setYear(2022);
         vehicle.addAccessory(accessory(1L, "Floor Mats", "Interior"));
-        when(vehicleRepository.findByModelNamePatternWithAccessories("%100!%!_!!%"))
+        when(vehicleRepository.findByModelKeyPatternWithAccessories("100!%!_!!%"))
                 .thenReturn(List.of(vehicle));
 
         List<CompatibilityResponse> responses = service.findByModelName(" 100%_! ");
@@ -87,9 +87,16 @@ class CompatibilityServiceImplTest {
 
     @Test
     void modelSearchReturnsEmptyListWhenThereAreNoMatches() {
-        when(vehicleRepository.findByModelNamePatternWithAccessories("%unknown%")).thenReturn(List.of());
+        when(vehicleRepository.findByModelKeyPatternWithAccessories("unknown%")).thenReturn(List.of());
 
         assertThat(service.findByModelName("unknown")).isEmpty();
+    }
+
+    @Test
+    void modelSearchLowercasesInputBeforeQuerying() {
+        when(vehicleRepository.findByModelKeyPatternWithAccessories("swift%")).thenReturn(List.of());
+
+        assertThat(service.findByModelName("  SWiFt ")).isEmpty();
     }
 
     private static Accessory accessory(Long id, String name, String category) {

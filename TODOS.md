@@ -2,18 +2,6 @@
 
 ## Follow-ups (P3)
 
-### Model search cannot use an index
-
-**What:** `VehicleRepository` matches models with `LOWER(v.model) LIKE LOWER(:pattern)`, which no index can serve.
-
-**Why:** Fine at demo scale, but it scans every vehicle; CODING_PRACTICES.md asks for comparisons an index can use.
-
-**Context:** Owner: Darshini. Options: store a normalised `model_key` column with an index, or a PostgreSQL expression index on `lower(model)` in a V3 migration (prefix matches only).
-
-**Effort:** S
-**Priority:** P3
-**Depends on:** None
-
 ### Rate limiting on login and refresh
 
 **What:** Per-IP and per-account throttling on `/api/auth/login` and `/api/auth/refresh`, with a short lockout after repeated failures.
