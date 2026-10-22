@@ -25,13 +25,19 @@ import java.util.Set;
 @Entity
 @Table(
         name = "accessories",
+        uniqueConstraints = {
+                @jakarta.persistence.UniqueConstraint(
+                        name = "uk_accessory_name_category",
+                        columnNames = {"name", "category"}
+                )
+        },
         indexes = {
-                // Category drives category-wide discounts and catalog filtering.
                 @Index(name = "idx_accessories_category", columnList = "category"),
                 @Index(name = "idx_accessories_name", columnList = "name"),
                 @Index(name = "idx_accessories_stock_quantity", columnList = "stock_quantity"),
                 @Index(name = "idx_accessories_min_stock", columnList = "min_stock_threshold")
-        })
+        }
+)
 @Check(name = "ck_accessories_nonnegative_stock", constraints = "stock_quantity >= 0")
 @Getter
 @Setter

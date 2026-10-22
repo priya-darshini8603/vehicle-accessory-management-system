@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -41,16 +42,77 @@ public class AccessoryServiceImpl implements AccessoryService {
 
     @Override
     @Transactional
-    public AccessoryResponse createAccessory(AccessoryRequest request, String actingUserEmail) {
+    public AccessoryResponse createAccessory(
+            AccessoryRequest request,
+            String actingUserEmail) {
+
         validateRequestedStock(request);
-        Accessory savedAccessory = accessoryRepository.save(accessoryMapper.toEntity(request));
-        int initialStock = requireNonnegativeStock(savedAccessory);
-        if (initialStock > 0) {
-            stockMovementRepository.save(inventoryMapper.toMovement(savedAccessory,
-                    StockMovementType.ADJUSTMENT, initialStock, 0, initialStock, "Initial stock", actingUserEmail));
+
+        Optional<Accessory> existingAccessoryOpt =
+                accessoryRepository.findByNameIgnoreCaseAndCategoryIgnoreCase(
+                        request.name(),
+                        request.category());
+
+        if (existingAccessoryOpt.isPresent()) {
+
+            Accessory existingAccessory = existingAccessoryOpt.get();
+
+            Integer incomingStock =
+                    request.stockQuantity() == null ? 0 : request.stockQuantity();
+
+            existingAccessory.setStockQuantity(
+                    existingAccessory.getStockQuantity() + incomingStock);
+
+            // Latest price wins
+            existingAccessory.setPrice(request.price());
+
+            existingAccessory.setDescription(request.description());
+
+            if (request.costPrice() != null) {
+                existingAccessory.setCostPrice(request.costPrice());
+            }
+
+            if (request.taxRate() != null) {
+                existingAccessory.setTaxRate(request.taxRate());
+            }
+
+            Accessory savedAccessory =
+                    accessoryRepository.save(existingAccessory);
+
+            log.info("Updated existing accessory with id {}",
+                    savedAccessory.getId());
+
+            return accessoryMapper.toResponse(savedAccessory);
         }
-        recordPriceChange(savedAccessory.getId(), null, null, savedAccessory, actingUserEmail);
-        log.info("Created accessory with id {}", savedAccessory.getId());
+
+        Accessory savedAccessory =
+                accessoryRepository.save(
+                        accessoryMapper.toEntity(request));
+
+        int initialStock = requireNonnegativeStock(savedAccessory);
+
+        if (initialStock > 0) {
+            stockMovementRepository.save(
+                    inventoryMapper.toMovement(
+                            savedAccessory,
+                            StockMovementType.ADJUSTMENT,
+                            initialStock,
+                            0,
+                            initialStock,
+                            "Initial stock",
+                            actingUserEmail));
+        }
+
+        recordPriceChange(
+                savedAccessory.getId(),
+                null,
+                null,
+                savedAccessory,
+                actingUserEmail);
+
+        log.info("Created accessory with id {}",
+                savedAccessory.getId());
+
         return accessoryMapper.toResponse(savedAccessory);
     }
 

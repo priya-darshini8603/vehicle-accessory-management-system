@@ -16,6 +16,10 @@ import java.util.Optional;
 @Repository
 public interface AccessoryRepository extends JpaRepository<Accessory, Long> {
 
+    Optional<Accessory> findByNameIgnoreCaseAndCategoryIgnoreCase(
+            String name,
+            String category);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM Accessory a WHERE a.id = :accessoryId")
     Optional<Accessory> findByIdForUpdate(@Param("accessoryId") Long accessoryId);
