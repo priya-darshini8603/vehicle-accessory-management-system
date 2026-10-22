@@ -52,11 +52,12 @@ Hibernate then only **validates** that the entities match (`DDL_AUTO=validate`);
 |---|---|
 | `V1__baseline.sql` | The full schema (10 tables, 17 indexes, 9 foreign keys), dumped from PostgreSQL 16 |
 | `V2__lowercase_discount_categories.sql` | Lower-cases existing discount categories (they are now stored lower-case) |
+| `V3__add_vehicle_model_key.sql` | Adds and backfills the normalized vehicle model search column and its prefix-search index |
 
-- **Change the schema** by adding `V3__short_description.sql` alongside the entity change. Never edit a migration that has
+- **Change the schema** by adding the next versioned SQL migration alongside the entity change. Never edit a migration that has
   already run anywhere; Flyway rejects a changed checksum.
 - **A database created earlier by `ddl-auto=update`** (no `flyway_schema_history` table) is baselined at V1 on first
-  start, then V2 onwards run.
+  start, then subsequent migrations run.
 - **Tests** use H2 with `create-drop` and Flyway off, because the migrations are PostgreSQL SQL. They were verified
   against PostgreSQL on a fresh database, an upgraded pre-Flyway database, and the full Postman collection.
 
@@ -228,8 +229,10 @@ Cancellation changes the status to `CANCELLED` and inventory processing state to
 |---|---|
 | GET | `/api/compatibility?vehicleNumber=KA01AB1234` |
 | GET | `/api/compatibility/vehicles/{vehicleNumber}/accessories` |
+| GET | `/api/compatibility/models?name=Swift` |
 
-Matching ignores case and surrounding whitespace. The response looks like this:
+Vehicle-number matching ignores case and surrounding whitespace. Model search is a case-insensitive,
+trimmed prefix match (for example, `swi` matches `Swift`). The response looks like this:
 
 ```json
 {

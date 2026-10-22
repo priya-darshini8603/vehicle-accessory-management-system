@@ -35,13 +35,14 @@ public class CompatibilityServiceImpl implements CompatibilityService {
     @Override
     @Transactional(readOnly = true)
     public List<CompatibilityResponse> findByModelName(String modelName) {
-        String escapedModelName = modelName.trim()
+        // Keep input canonicalization identical to Vehicle.modelKey, then escape LIKE metacharacters.
+        String escapedModelName = Vehicle.normalizeModel(modelName)
                 .replace("!", "!!")
                 .replace("%", "!%")
                 .replace("_", "!_");
-        String modelNamePattern = "%" + escapedModelName + "%";
+        String modelKeyPattern = escapedModelName + "%";
 
-        return vehicleRepository.findByModelNamePatternWithAccessories(modelNamePattern).stream()
+        return vehicleRepository.findByModelKeyPatternWithAccessories(modelKeyPattern).stream()
                 .map(vehicleMapper::toCompatibilityResponse)
                 .sorted(Comparator.comparing(
                                 (CompatibilityResponse response) -> response.vehicle().make(),

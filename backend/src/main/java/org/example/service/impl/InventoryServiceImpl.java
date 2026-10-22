@@ -2,25 +2,31 @@ package org.example.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.dto.InventoryAnalysisResult;
 import org.example.dto.InventoryItemReport;
 import org.example.dto.InventoryReport;
 import org.example.dto.PageResponse;
 import org.example.dto.StockMovementRequest;
 import org.example.dto.StockMovementResponse;
 import org.example.entity.Accessory;
+import org.example.entity.StockMovement;
 import org.example.enums.StockMovementType;
 import org.example.exception.BusinessRuleException;
 import org.example.exception.ResourceNotFoundException;
 import org.example.mapper.InventoryMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.StockMovementRepository;
+import org.example.service.InventoryAnalysisCalculator;
 import org.example.service.InventoryService;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +43,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final AccessoryRepository accessoryRepository;
     private final StockMovementRepository stockMovementRepository;
     private final InventoryMapper inventoryMapper;
+    private final InventoryAnalysisCalculator inventoryAnalysisCalculator;
     private final Clock clock;
 
     @Override
@@ -89,22 +96,64 @@ public class InventoryServiceImpl implements InventoryService {
             Instant to,
             Pageable pageable) {
 
-        validateMovementHistoryRequest(
-                accessoryId,
-                from,
-                to);
+        // Keep your existing validation.
+        validateMovementHistoryRequest(accessoryId, from, to);
 
+        // Build only the filters supplied by the caller.
+        Specification<StockMovement> specification = (root, query, cb) -> {
+
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Always filter by accessory ID.
+            predicates.add(
+                    cb.equal(
+                            root.get("accessory").get("id"),
+                            accessoryId
+                    )
+            );
+
+            // Filter by movement type only when supplied.
+            if (type != null) {
+                predicates.add(
+                        cb.equal(root.get("type"), type)
+                );
+            }
+
+            // Filter by start time only when supplied.
+            if (from != null) {
+                predicates.add(
+                        cb.greaterThanOrEqualTo(
+                                root.<Instant>get("occurredAt"),
+                                from
+                        )
+                );
+            }
+
+            // Filter by end time only when supplied.
+            if (to != null) {
+                predicates.add(
+                        cb.lessThanOrEqualTo(
+                                root.<Instant>get("occurredAt"),
+                                to
+                        )
+                );
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        // Execute the dynamically generated query.
+        var movements = stockMovementRepository.findAll(
+                specification,
+                pageable
+        );
+
+        // Convert the database results into your existing response format.
         return PageResponse.from(
-                stockMovementRepository.findHistory(
-                        accessoryId,
-                        type,
-                        from,
-                        to,
-                        pageable),
+                movements,
                 inventoryMapper::toResponse
         );
     }
-
     @Override
     @Transactional(readOnly = true)
     public InventoryReport generateReport(int analysisPeriodDays) {
@@ -280,14 +329,15 @@ public class InventoryServiceImpl implements InventoryService {
 
         return accessoryRepository.findAll()
                 .stream()
-                .map(accessory ->
-                        inventoryMapper.toInventoryItemReport(
-                                accessory,
-                                requireNonNegativeStock(accessory),
-                                salesByAccessory.getOrDefault(
-                                        accessory.getId(),
-                                        0L),
-                                analysisPeriodDays))
+                .map(accessory -> {
+                    InventoryAnalysisResult analysis = inventoryAnalysisCalculator.calculate(
+                            requireNonNegativeStock(accessory),
+                            accessory.getMinStockThreshold(),
+                            accessory.getLeadTimeDays(),
+                            salesByAccessory.getOrDefault(accessory.getId(), 0L),
+                            analysisPeriodDays);
+                    return inventoryMapper.toInventoryItemReport(accessory, analysis);
+                })
                 .toList();
     }
 

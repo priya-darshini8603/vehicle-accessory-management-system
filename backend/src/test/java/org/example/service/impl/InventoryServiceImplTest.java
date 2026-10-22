@@ -9,6 +9,7 @@ import org.example.exception.BusinessRuleException;
 import org.example.mapper.InventoryMapper;
 import org.example.repository.AccessoryRepository;
 import org.example.repository.StockMovementRepository;
+import org.example.service.InventoryAnalysisCalculator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +45,7 @@ class InventoryServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new InventoryServiceImpl(accessoryRepository, stockMovementRepository,
-                new InventoryMapper(),
+                new InventoryMapper(), new InventoryAnalysisCalculator(),
                 Clock.fixed(Instant.parse("2026-10-19T00:00:00Z"), ZoneOffset.UTC));
     }
 

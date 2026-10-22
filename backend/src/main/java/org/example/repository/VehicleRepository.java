@@ -31,13 +31,14 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
             """)
     Optional<Vehicle> findByVehicleNumberWithAccessories(@Param("vehicleNumber") String vehicleNumber);
 
-    // Model search fetches mapped accessories in the same query; '!' is the LIKE escape character.
+    // Search the canonical column directly: LOWER(model) prevents use of a normal model index.
+    // A prefix pattern can use idx_vehicles_model_key rather than scanning and transforming each row.
     @Query("""
          SELECT DISTINCT v FROM Vehicle v
          LEFT JOIN FETCH v.accessories
-         WHERE LOWER(v.model) LIKE LOWER(:modelNamePattern) ESCAPE '!' 
+         WHERE v.modelKey LIKE :modelKeyPattern ESCAPE '!'
          """)
-    List<Vehicle> findByModelNamePatternWithAccessories(@Param("modelNamePattern") String modelNamePattern);
+    List<Vehicle> findByModelKeyPatternWithAccessories(@Param("modelKeyPattern") String modelKeyPattern);
 
 
     // Single vehicle with its accessories loaded eagerly for detail/mapping responses.

@@ -58,6 +58,21 @@ class VehicleRepositoryTest {
     }
 
     @Test
+    void modelKeyIsNormalizedOnPersistAndTracksModelUpdates() {
+        Vehicle vehicle = vehicleRepository.findById(swift.getId()).orElseThrow();
+        assertThat(vehicle.getModelKey()).isEqualTo("swift");
+
+        vehicle.setModel("  Grand VITARA  ");
+        assertThat(vehicle.getModelKey()).isEqualTo("grand vitara");
+        vehicleRepository.saveAndFlush(vehicle);
+        em.clear();
+
+        Vehicle updated = vehicleRepository.findById(swift.getId()).orElseThrow();
+        assertThat(updated.getModel()).isEqualTo("  Grand VITARA  ");
+        assertThat(updated.getModelKey()).isEqualTo("grand vitara");
+    }
+
+    @Test
     void auditTimestampsArePopulated() {
         Vehicle v = vehicleRepository.findById(swift.getId()).orElseThrow();
         assertThat(v.getCreatedAt()).isNotNull();
@@ -83,14 +98,19 @@ class VehicleRepositoryTest {
     }
 
     @Test
-    void findByModelNamePatternWithAccessoriesMatchesCaseInsensitivelyAndLoadsMappings() {
-        List<Vehicle> results = vehicleRepository.findByModelNamePatternWithAccessories("%wi%");
+    void findByModelKeyPatternWithAccessoriesMatchesPrefixAndLoadsMappings() {
+        List<Vehicle> results = vehicleRepository.findByModelKeyPatternWithAccessories("swi%");
 
         assertThat(results).hasSize(1);
         assertThat(Hibernate.isInitialized(results.getFirst().getAccessories())).isTrue();
         assertThat(results.getFirst().getAccessories())
                 .extracting(Accessory::getName)
                 .containsExactlyInAnyOrder("Floor Mats", "Roof Rack");
+    }
+
+    @Test
+    void findByModelKeyPatternDoesNotMatchOnlyAnInteriorSubstring() {
+        assertThat(vehicleRepository.findByModelKeyPatternWithAccessories("ift%")).isEmpty();
     }
 
     @Test

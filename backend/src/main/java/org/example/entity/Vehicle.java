@@ -24,7 +24,9 @@ import java.util.Set;
                 // garage request scans the whole vehicles table. Foreign keys are not indexed automatically.
                 @Index(name = "idx_vehicles_user_id", columnList = "user_id"),
                 // Lookups and grouping by make/model/year (catalog filters, reporting).
-                @Index(name = "idx_vehicles_make_model_year", columnList = "make, model, year")
+                @Index(name = "idx_vehicles_make_model_year", columnList = "make, model, year"),
+                // Supports scalable prefix searches against the normalized model value.
+                @Index(name = "idx_vehicles_model_key", columnList = "model_key")
         })
 @Getter
 @Setter
@@ -49,6 +51,13 @@ public class Vehicle {
 
     @Column(nullable = false, length = 60)
     private String model;
+
+    // Canonical model value avoids applying LOWER() to every row during case-insensitive searches,
+    // allowing prefix searches to use idx_vehicles_model_key.
+    @Getter
+    @Setter(AccessLevel.NONE)
+    @Column(name = "model_key", nullable = false, length = 60)
+    private String modelKey;
 
     @Column(nullable = false)
     private Integer year;
@@ -96,6 +105,15 @@ public class Vehicle {
         return vehicleNumber == null ? null : vehicleNumber.trim().toUpperCase(Locale.ROOT);
     }
 
+    public static String normalizeModel(String model) {
+        return model == null ? null : model.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+        this.modelKey = normalizeModel(model);
+    }
+
     // Manufacturers sell next year's model from mid-year, so current year + 1 is the latest real model year.
     public static boolean isPlausibleModelYear(Integer year) {
         return year == null || year <= Year.now().getValue() + 1;
@@ -105,6 +123,7 @@ public class Vehicle {
     @PreUpdate
     private void normalize() {
         this.vehicleNumber = normalizeVehicleNumber(this.vehicleNumber);
+        this.modelKey = normalizeModel(this.model);
     }
 
     //  Links an accessory, keeping both sides of the bidirectional association in sync.
