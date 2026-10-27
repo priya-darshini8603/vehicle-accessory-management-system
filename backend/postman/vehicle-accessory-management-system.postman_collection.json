@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "3088c31d-31d0-52b2-9ca6-3f27391bb384",
     "name": "Vehicle Accessory Management System - Feature Organized + Edge Cases",
-    "description": "API requests organized into the requested top-level feature folders. Folder includes all edge cases.",
+    "description": "End-to-end API suite. Select the **VAMS Local** environment, start the backend, then run the whole collection with the Collection Runner (folders run top to bottom). Tokens and ids are captured automatically into collection variables.\\n\\nAuth: the collection uses `Bearer {{adminToken}}` by default; customer and public requests override it.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -84,15 +84,7 @@
       "value": ""
     },
     {
-      "key": "tyreId",
-      "value": ""
-    },
-    {
       "key": "mudFlapsId",
-      "value": ""
-    },
-    {
-      "key": "roofRackId",
       "value": ""
     },
     {
@@ -101,18 +93,6 @@
     },
     {
       "key": "customerRefreshToken",
-      "value": ""
-    },
-    {
-      "key": "tyreDealId",
-      "value": ""
-    },
-    {
-      "key": "tyreDealBody",
-      "value": ""
-    },
-    {
-      "key": "createdOrderId",
       "value": ""
     },
     {
@@ -227,36 +207,12 @@
       "value": ""
     },
     {
-      "key": "postmanPromotionId",
-      "value": ""
-    },
-    {
       "key": "postmanDiscountVersion",
       "value": ""
     },
     {
       "key": "staleDiscountVersion",
       "value": "0"
-    },
-    {
-      "key": "lastQuoteGrandTotal",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "lastQuoteSubtotal",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "interiorAccessoryId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "validCouponCode",
-      "value": "",
-      "type": "string"
     }
   ],
   "item": [
@@ -3043,22 +2999,14 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/discounts",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "discounts"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "discounts"]
             },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Postman Test Coupon\",\n  \"code\": \"{{postmanCouponCode}}\",\n  \"type\": \"PERCENTAGE\",\n  \"value\": 10,\n  \"scope\": \"ALL\",\n  \"category\": null,\n  \"accessoryId\": null,\n  \"maxDiscountAmount\": 500,\n  \"minQuantity\": 1,\n  \"validFrom\": null,\n  \"validTo\": null,\n  \"active\": true\n}",
               "options": {
-                "raw": {
-                  "language": "json"
-                }
+                "raw": { "language": "json" }
               }
             }
           },
@@ -3068,8 +3016,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.collectionVariables.set('postmanCouponCode', 'PMTEST_' + Date.now().toString());",
-                  "if (pm.response.code === 201) { pm.collectionVariables.set('postmanDiscountVersion', String(pm.response.json().version)); pm.collectionVariables.set('staleDiscountVersion', String(pm.response.json().version)); }"
+                  "pm.collectionVariables.set('postmanCouponCode', 'PMTEST_' + Date.now().toString());"
                 ]
               }
             },
@@ -3082,7 +3029,8 @@
                   "const d = pm.response.json();",
                   "pm.test('Coupon has an id and code', () => { pm.expect(d.id).to.be.a('number'); pm.expect(d.code).to.eql(pm.collectionVariables.get('postmanCouponCode')); });",
                   "pm.collectionVariables.set('postmanCouponId', d.id);",
-                  "pm.collectionVariables.set('postmanCouponVersion', d.version);"
+                  "pm.collectionVariables.set('postmanCouponVersion', d.version);",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('postmanDiscountVersion', String(d.version)); pm.collectionVariables.set('staleDiscountVersion', String(d.version)); }"
                 ]
               }
             }
