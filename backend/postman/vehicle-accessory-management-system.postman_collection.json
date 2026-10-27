@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "3088c31d-31d0-52b2-9ca6-3f27391bb384",
-    "name": "Vehicle Accessory Management System",
-    "description": "End-to-end API suite. Select the **VAMS Local** environment, start the backend, then run the whole collection with the Collection Runner (folders run top to bottom). Tokens and ids are captured automatically into collection variables.\n\nAuth: the collection uses `Bearer {{adminToken}}` by default; customer and public requests override it.",
+    "name": "Vehicle Accessory Management System - Feature Organized + Edge Cases",
+    "description": "API requests organized into the requested top-level feature folders. Folder includes all edge cases.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -110,971 +110,159 @@
     {
       "key": "tyreDealBody",
       "value": ""
+    },
+    {
+      "key": "createdOrderId",
+      "value": ""
+    },
+    {
+      "key": "lastOrderIdempotencyKey",
+      "value": ""
+    },
+    {
+      "key": "insufficientStockKey",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "inventoryReportDays",
+      "value": "30",
+      "type": "string"
+    },
+    {
+      "key": "stockAdjustmentQuantity",
+      "value": "20",
+      "type": "string"
+    },
+    {
+      "key": "stockAdjustmentReason",
+      "value": "Supplier delivery (Postman test)",
+      "type": "string"
+    },
+    {
+      "key": "orderQuantity",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "insufficientStockQuantity",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@example.com",
+      "type": "string"
+    },
+    {
+      "key": "adminPassword",
+      "value": "ChangeMe_Admin123!",
+      "type": "string"
+    },
+    {
+      "key": "customerEmail",
+      "value": "customer@example.com",
+      "type": "string"
+    },
+    {
+      "key": "customerPassword",
+      "value": "ChangeMe_Customer123!",
+      "type": "string"
+    },
+    {
+      "key": "demoCustomerEmail",
+      "value": "demo.customer@example.com",
+      "type": "string"
+    },
+    {
+      "key": "demoCustomerPassword",
+      "value": "ChangeMe_Demo123!",
+      "type": "string"
+    },
+    {
+      "key": "vehicleNumber",
+      "value": "KA01AB1234",
+      "type": "string"
+    },
+    {
+      "key": "vehicleNumberLower",
+      "value": "ka01ab1234",
+      "type": "string"
+    },
+    {
+      "key": "garageVehicleId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "garageVehicleNumber",
+      "value": "KA05MN7621",
+      "type": "string"
+    },
+    {
+      "key": "secondGarageVehicleNumber",
+      "value": "KA03PQ8642",
+      "type": "string"
+    },
+    {
+      "key": "secondGarageVehicleId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "postmanCouponCode",
+      "value": ""
+    },
+    {
+      "key": "postmanCouponId",
+      "value": ""
+    },
+    {
+      "key": "postmanPromotionId",
+      "value": ""
+    },
+    {
+      "key": "postmanDiscountVersion",
+      "value": ""
+    },
+    {
+      "key": "staleDiscountVersion",
+      "value": "0"
+    },
+    {
+      "key": "lastQuoteGrandTotal",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastQuoteSubtotal",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "interiorAccessoryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "validCouponCode",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
     {
-      "name": "00 Demo (seeded data)",
-      "description": "Presentation walkthrough. Needs the dev profile with DEMO_SEED=true on an empty database (see README). Set demoCustomerPassword in the environment to the DEMO_CUSTOMER_PASSWORD from backend/.env. Run this folder on its own; the numbered folders below create their own data and conflict with seeded vehicle numbers.",
-      "item": [
-        {
-          "name": "Login as admin",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "login"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.test('Admin role', () => pm.expect(body.user.role).to.eql('ADMIN'));",
-                  "pm.collectionVariables.set('adminToken', body.accessToken);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Login as demo customer",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "login"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{demoCustomerEmail}}\",\n  \"password\": \"{{demoCustomerPassword}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.test('Customer role', () => pm.expect(body.user.role).to.eql('CUSTOMER'));",
-                  "pm.collectionVariables.set('demoCustomerToken', body.accessToken);",
-                  "pm.collectionVariables.set('demoRefreshToken', body.refreshToken);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "My garage: two vehicles, primary first",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/me/vehicles",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "me",
-                "vehicles"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const garage = pm.response.json();",
-                  "pm.test('Two vehicles', () => pm.expect(garage.length).to.eql(2));",
-                  "pm.test('Exactly one primary, listed first', () => { pm.expect(garage[0].primary).to.be.true; pm.expect(garage.filter(v => v.primary).length).to.eql(1); });",
-                  "pm.collectionVariables.set('primaryVehicleId', garage[0].id);",
-                  "pm.collectionVariables.set('secondVehicleId', garage[1].id);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Accessories for my primary vehicle (no cost price shown)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/me/vehicles/{{primaryVehicleId}}/accessories",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "me",
-                "vehicles",
-                "{{primaryVehicleId}}",
-                "accessories"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "const byName = n => body.compatibleAccessories.find(a => a.name === n);",
-                  "pm.test('Cost price is hidden from customers', () => body.compatibleAccessories.forEach(a => pm.expect(a).to.not.have.property('costPrice')));",
-                  "pm.collectionVariables.set('matsId', byName('All-Weather Floor Mats').id);",
-                  "pm.collectionVariables.set('tyreId', byName('Tyre 185/65 R15').id);",
-                  "pm.collectionVariables.set('mudFlapsId', byName('Mud Flaps').id);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Accessories for my second vehicle",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/me/vehicles/{{secondVehicleId}}/accessories",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "me",
-                "vehicles",
-                "{{secondVehicleId}}",
-                "accessories"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.collectionVariables.set('roofRackId', body.compatibleAccessories.find(a => a.name === 'Roof Rack').id);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Model search: every Swift and what fits it",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/compatibility/models?name=swift",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "compatibility",
-                "models"
-              ],
-              "query": [
-                {
-                  "key": "name",
-                  "value": "swift"
-                }
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const results = pm.response.json();",
-                  "pm.test('Both Swifts found, case-insensitively', () => pm.expect(results.length).to.be.at.least(2));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Quote: automatic discounts (Interior Week + 4-tyre deal)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/pricing/quote",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "pricing",
-                "quote"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"vehicleId\": {{primaryVehicleId}},\n  \"items\": [\n    {\"accessoryId\": {{matsId}}, \"quantity\": 1},\n    {\"accessoryId\": {{tyreId}}, \"quantity\": 4}\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const q = pm.response.json();",
-                  "pm.test('Interior Week on mats', () => pm.expect(q.lines[0].appliedDiscount.name).to.eql('Interior Week'));",
-                  "pm.test('Bulk tyre deal at 4 tyres', () => pm.expect(q.lines[1].appliedDiscount.name).to.eql('Buy 4 tyres, save 15%'));",
-                  "pm.test('Totals reconcile', () => pm.expect(Math.round((q.subtotal - q.discountTotal + q.taxTotal) * 100)).to.eql(Math.round(q.grandTotal * 100)));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Quote: FESTIVE25 coupon beats them (best single discount, capped)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/pricing/quote",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "pricing",
-                "quote"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"couponCode\": \"festive25\",\n  \"vehicleId\": {{primaryVehicleId}},\n  \"items\": [\n    {\"accessoryId\": {{matsId}}, \"quantity\": 1},\n    {\"accessoryId\": {{tyreId}}, \"quantity\": 4}\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const q = pm.response.json();",
-                  "pm.test('Coupon applied', () => pm.expect(q.couponApplied).to.be.true);",
-                  "pm.test('Cap of 1000 per tyre respected', () => pm.expect(q.lines[1].unitDiscount).to.eql(1000));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Quote: expired coupon is rejected with a clear message (422)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/pricing/quote",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "pricing",
-                "quote"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"couponCode\": \"NEWYEAR10\",\n  \"items\": [{\"accessoryId\": {{matsId}}, \"quantity\": 1}]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 422', () => pm.response.to.have.status(422));",
-                  "pm.test('Says expired', () => pm.expect(pm.response.json().message).to.include('has expired'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Quote: wrong-fit and out-of-stock warnings",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/pricing/quote",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "pricing",
-                "quote"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"vehicleId\": {{primaryVehicleId}},\n  \"items\": [\n    {\"accessoryId\": {{roofRackId}}, \"quantity\": 1},\n    {\"accessoryId\": {{mudFlapsId}}, \"quantity\": 1}\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const q = pm.response.json();",
-                  "pm.test('Roof rack flagged as not compatible with the Swift', () => pm.expect(q.lines[0].warnings.join()).to.include('Not listed as compatible'));",
-                  "pm.test('Mud flaps flagged out of stock', () => pm.expect(q.lines[1].warnings).to.include('Out of stock'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Customer cannot use the admin API (403)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/inventory/report?days=30",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "inventory",
-                "report"
-              ],
-              "query": [
-                {
-                  "key": "days",
-                  "value": "30"
-                }
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 403', () => pm.response.to.have.status(403));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Admin: inventory report (low stock, reorder, fast movers)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/inventory/report?days=30",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "inventory",
-                "report"
-              ],
-              "query": [
-                {
-                  "key": "days",
-                  "value": "30"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const r = pm.response.json();",
-                  "pm.test('Mud flaps out of stock', () => pm.expect(r.outOfStockItems.map(i => i.name)).to.include('Mud Flaps'));",
-                  "pm.test('Roof rack low on stock', () => pm.expect(r.lowStockItems.map(i => i.name)).to.include('Roof Rack'));",
-                  "pm.test('Phone mount is a fast mover', () => pm.expect(r.fastMovingProducts.map(i => i.name)).to.include('Magnetic Phone Mount'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Admin: restock mud flaps (audited adjustment)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{mudFlapsId}}/movements",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "inventory",
-                "accessories",
-                "{{mudFlapsId}}",
-                "movements"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"ADJUSTMENT\",\n  \"quantityDelta\": 20,\n  \"note\": \"Supplier delivery (live demo)\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "pm.test('Stock after = 20', () => pm.expect(pm.response.json().stockAfter).to.eql(20));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Admin: price history of the mats",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories/{{matsId}}/price-history",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "accessories",
-                "{{matsId}}",
-                "price-history"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "pm.test('Initial price recorded', () => pm.expect(pm.response.json().totalElements).to.be.at.least(1));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Admin: discounts and coupons",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/discounts?size=50",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "discounts"
-              ],
-              "query": [
-                {
-                  "key": "size",
-                  "value": "50"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "pm.test('Live flag shown', () => pm.expect(pm.response.json().content[0]).to.have.property('live'));",
-                  "const deal = pm.response.json().content.find(d => d.name === 'Buy 4 tyres, save 15%');",
-                  "pm.test('Discounts expose a version for safe editing', () => pm.expect(deal.version).to.be.a('number'));",
-                  "pm.collectionVariables.set('tyreDealId', deal.id);",
-                  "// The full PUT body with the version we just read. Extending the end date is a real change (an identical",
-                  "// save is a no-op and keeps the version) that leaves every price unchanged.",
-                  "const body = (({name, code, type, value, scope, category, accessoryId, maxDiscountAmount, minQuantity, validFrom, validTo, active, version}) =>",
-                  "  ({name, code, type, value, scope, category, accessoryId, maxDiscountAmount, minQuantity, validFrom, validTo, active, version}))(deal);",
-                  "body.validTo = new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString();",
-                  "pm.collectionVariables.set('tyreDealBody', JSON.stringify(body));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Admin: extend the tyre deal using the version just read (200)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/discounts/{{tyreDealId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "discounts",
-                "{{tyreDealId}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{{tyreDealBody}}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "pm.test('Version moved on', () => pm.expect(pm.response.json().version).to.eql(JSON.parse(pm.collectionVariables.get('tyreDealBody')).version + 1));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Admin: a second save with the now-stale version is rejected (409)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/discounts/{{tyreDealId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "discounts",
-                "{{tyreDealId}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{{tyreDealBody}}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
-                  "pm.test('Says reload and try again', () => pm.expect(pm.response.json().message).to.include('Reload and try again'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Refresh: token rotates",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/refresh",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "refresh"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{demoRefreshToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.collectionVariables.set('oldRefreshToken', pm.collectionVariables.get('demoRefreshToken'));",
-                  "pm.collectionVariables.set('demoRefreshToken', body.refreshToken);",
-                  "pm.collectionVariables.set('demoCustomerToken', body.accessToken);",
-                  "pm.test('New refresh token issued', () => pm.expect(body.refreshToken).to.not.eql(pm.collectionVariables.get('oldRefreshToken')));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Logout demo customer",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "logout"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{demoRefreshToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{demoCustomerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Refresh: the rotated-out token cannot be reused (401)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/refresh",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "refresh"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{oldRefreshToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "01 Auth",
-      "description": "Register a customer and log in as admin and customer.",
+      "name": "Register",
+      "description": "Customer registration and registration validation cases.",
       "item": [
         {
           "name": "Register customer",
@@ -1171,6 +359,62 @@
                   "pm.test('Status is 400', () => pm.response.to.have.status(400));",
                   "const body = pm.response.json();",
                   "pm.test('Field errors returned', () => pm.expect(body.fieldErrors).to.include.keys('fullName', 'email', 'password'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "description": "Login success and failure cases for admin, customer, and demo customer.",
+      "item": [
+        {
+          "name": "Login as demo customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{demoCustomerEmail}}\",\n  \"password\": \"{{demoCustomerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Customer role', () => pm.expect(body.user.role).to.eql('CUSTOMER'));",
+                  "pm.collectionVariables.set('demoCustomerToken', body.accessToken);",
+                  "pm.collectionVariables.set('demoRefreshToken', body.refreshToken);"
                 ]
               }
             }
@@ -1328,8 +572,662 @@
       ]
     },
     {
-      "name": "02 Admin - Accessories",
-      "description": "Accessory catalog CRUD (ADMIN only).",
+      "name": "Logout",
+      "description": "Logout behavior, validation, idempotency, and post-logout access-token behavior.",
+      "item": [
+        {
+          "name": "Logout demo customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{demoRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout customer (refresh token only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Logout message', () => pm.expect(pm.response.json().message).to.eql('Logout successful'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Access token still works until it expires (by design)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout again is idempotent (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout without body (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout with blank refresh token (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"   \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on refreshToken', () => pm.expect(pm.response.json().fieldErrors).to.have.property('refreshToken'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{adminRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Refresh Token",
+      "description": "Refresh-token rotation and rejection of expired/rotated/revoked tokens.",
+      "item": [
+        {
+          "name": "Refresh: token rotates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{adminRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('oldRefreshToken', pm.collectionVariables.get('adminRefreshToken'));",
+                  "pm.collectionVariables.set('customerRefreshToken', body.refreshToken);",
+                  "pm.collectionVariables.set('customerAccessToken', body.accessToken);",
+                  "pm.test('New refresh token issued', () => pm.expect(body.refreshToken).to.not.eql(pm.collectionVariables.get('oldRefreshToken')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh: the rotated-out token cannot be reused (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{oldRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logged-out refresh token cannot be used (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh: missing refreshToken field (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Missing field is rejected', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh: blank refresh token (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"   \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Blank refresh token is rejected', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh: unknown token (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"not-a-real-refresh-token\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unknown refresh token is rejected', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh: token exceeding max length (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Overlong refresh token is rejected', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Accessories",
+      "description": "Admin accessory CRUD and accessory price history.",
       "item": [
         {
           "name": "Create accessory",
@@ -1660,8 +1558,8 @@
       ]
     },
     {
-      "name": "03 Admin - Vehicles",
-      "description": "Vehicle CRUD (ADMIN only). Vehicle numbers are unique, trimmed and upper-cased.",
+      "name": "Vehicles",
+      "description": "Admin vehicle CRUD and vehicle access-control cases.",
       "item": [
         {
           "name": "Create vehicle",
@@ -2019,12 +1917,104 @@
               }
             }
           ]
+        },
+        {
+          "name": "Vehicle keeps both accessories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "vehicles",
+                "{{vehicleId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Both accessories still mapped', () => pm.expect(body.accessories).to.have.lengthOf(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete vehicle",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "vehicles",
+                "{{vehicleId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deleted vehicle is gone (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "vehicles",
+                "{{vehicleId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "04 Admin - Mappings",
-      "description": "Map accessories to a vehicle (ADMIN only).",
+      "name": "Vehicle-Accessory Mappings",
+      "description": "Create, replace, and remove accessory-to-vehicle mappings, including idempotency and validation cases.",
       "item": [
         {
           "name": "Map accessory to vehicle",
@@ -2288,8 +2278,8 @@
       ]
     },
     {
-      "name": "05 Compatibility",
-      "description": "Accessory search by vehicle number (ADMIN or CUSTOMER). Case and surrounding spaces are ignored.",
+      "name": "Compatibility Search",
+      "description": "Search compatible accessories and vehicle models, including invalid and not-found cases.",
       "item": [
         {
           "name": "Search by query param (customer)",
@@ -2483,7 +2473,7 @@
               "query": [
                 {
                   "key": "vehicleNumber",
-                  "value": "%20"
+                  "value": " "
                 }
               ]
             },
@@ -2513,8 +2503,2910 @@
       ]
     },
     {
-      "name": "06 Admin - Users",
-      "description": "List users and change roles (ADMIN only).",
+      "name": "Customer Garage",
+      "description": "Customer garage and vehicle-specific accessory views.",
+      "item": [
+        {
+          "name": "My garage: two vehicles, primary first",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const garage = pm.response.json();",
+                  "pm.test('Two vehicles', () => pm.expect(garage.length).to.eql(2));",
+                  "pm.test('Exactly one primary, listed first', () => { pm.expect(garage[0].primary).to.be.true; pm.expect(garage.filter(v => v.primary).length).to.eql(1); });",
+                  "pm.collectionVariables.set('primaryVehicleId', garage[0].id);",
+                  "pm.collectionVariables.set('secondVehicleId', garage[1].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accessories for my primary vehicle (no cost price shown)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles/{{primaryVehicleId}}/accessories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles",
+                "{{primaryVehicleId}}",
+                "accessories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const byName = n => body.compatibleAccessories.find(a => a.name === n);",
+                  "pm.test('Cost price is hidden from customers', () => body.compatibleAccessories.forEach(a => pm.expect(a).to.not.have.property('costPrice')));",
+                  "pm.collectionVariables.set('matsId', byName('All-Weather Floor Mats').id);",
+                  "pm.collectionVariables.set('tyreId', byName('Tyre 185/65 R15').id);",
+                  "pm.collectionVariables.set('mudFlapsId', byName('Mud Flaps').id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accessories for my second vehicle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles/{{secondVehicleId}}/accessories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles",
+                "{{secondVehicleId}}",
+                "accessories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('roofRackId', body.compatibleAccessories.find(a => a.name === 'Roof Rack').id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add vehicle to my garage",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleNumber\": \"{{garageVehicleNumber}}\",\n  \"make\": \"Honda\",\n  \"model\": \"City\",\n  \"year\": 2023,\n  \"nickname\": \"My Honda\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Owner is taken from the authenticated token; do not send userId."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Created vehicle response', () => { pm.expect(body).to.include.keys('id','vehicleNumber','make','model','year','primary'); pm.expect(body.nickname).to.eql('My Honda'); });",
+                  "pm.collectionVariables.set('garageVehicleId', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add second vehicle to my garage",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleNumber\": \"{{secondGarageVehicleNumber}}\",\n  \"make\": \"Hyundai\",\n  \"model\": \"i20\",\n  \"year\": 2024,\n  \"nickname\": \"Second Car\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Creates a second distinct vehicle for the authenticated customer. Use a vehicle number that is not already registered to this customer."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Second vehicle response has expected details', () => { pm.expect(body).to.include.keys('id','vehicleNumber','make','model','year','primary'); pm.expect(body.vehicleNumber).to.eql(pm.collectionVariables.get('secondGarageVehicleNumber')); pm.expect(body.make).to.eql('Hyundai'); pm.expect(body.model).to.eql('i20'); pm.expect(body.nickname).to.eql('Second Car'); });",
+                  "pm.collectionVariables.set('secondGarageVehicleId', body.id);",
+                  "pm.test('Second vehicle has a different ID from the first created vehicle', () => { const firstId = pm.collectionVariables.get('garageVehicleId'); if (firstId) pm.expect(body.id).not.to.eql(firstId); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify both created vehicles appear in my garage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Run after both Add vehicle requests. Confirms both created vehicle IDs are present in the authenticated customer garage."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const vehicles = Array.isArray(body) ? body : (body.content || body.vehicles || []);",
+                  "const firstId = pm.collectionVariables.get('garageVehicleId');",
+                  "const secondId = pm.collectionVariables.get('secondGarageVehicleId');",
+                  "pm.test('Both created vehicles are present in the garage response', () => { pm.expect(firstId, 'Run Add vehicle to my garage first').to.be.ok; pm.expect(secondId, 'Run Add second vehicle to my garage first').to.be.ok; const ids = vehicles.map(v => String(v.id)); pm.expect(ids).to.include(String(firstId)); pm.expect(ids).to.include(String(secondId)); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get my garage vehicle by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles/{{garageVehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles",
+                "{{garageVehicleId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns requested vehicle', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('garageVehicleId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update my garage vehicle nickname",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles/{{garageVehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles",
+                "{{garageVehicleId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nickname\": \"Daily Driver\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Only nickname is customer-editable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Nickname updated', () => pm.expect(pm.response.json().nickname).to.eql('Daily Driver'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Make my garage vehicle primary",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles/{{garageVehicleId}}/primary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles",
+                "{{garageVehicleId}}",
+                "primary"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Vehicle is primary', () => pm.expect(pm.response.json().primary).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove vehicle from my garage",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/vehicles/{{garageVehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "vehicles",
+                "{{garageVehicleId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "This removes the vehicle from the current customer's garage."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Discounts",
+      "description": "Admin discount/coupon/promotion CRUD, optimistic-lock versioning, and stale-update conflict tests.",
+      "item": [
+        {
+          "name": "Admin: discounts and coupons",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts?size=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts"
+              ],
+              "query": [
+                {
+                  "key": "size",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Live flag shown', () => pm.expect(pm.response.json().content[0]).to.have.property('live'));",
+                  "const deal = pm.response.json().content.find(d => d.name === 'Buy 4 tyres, save 15%');",
+                  "pm.test('Discounts expose a version for safe editing', () => pm.expect(deal.version).to.be.a('number'));",
+                  "pm.collectionVariables.set('tyreDealId', deal.id);",
+                  "// The full PUT body with the version we just read. Extending the end date is a real change (an identical",
+                  "// save is a no-op and keeps the version) that leaves every price unchanged.",
+                  "const body = (({name, code, type, value, scope, category, accessoryId, maxDiscountAmount, minQuantity, validFrom, validTo, active, version}) =>",
+                  "  ({name, code, type, value, scope, category, accessoryId, maxDiscountAmount, minQuantity, validFrom, validTo, active, version}))(deal);",
+                  "body.validTo = new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString();",
+                  "pm.collectionVariables.set('tyreDealBody', JSON.stringify(body));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: create coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Coupon\",\n  \"code\": \"{{postmanCouponCode}}\",\n  \"type\": \"PERCENTAGE\",\n  \"value\": 10,\n  \"scope\": \"ALL\",\n  \"category\": null,\n  \"accessoryId\": null,\n  \"maxDiscountAmount\": 500,\n  \"minQuantity\": 1,\n  \"validFrom\": null,\n  \"validTo\": null,\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('postmanCouponCode', 'PMTEST_' + Date.now().toString());",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('postmanDiscountVersion', String(pm.response.json().version)); pm.collectionVariables.set('staleDiscountVersion', String(pm.response.json().version)); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test('Coupon has an id and code', () => { pm.expect(d.id).to.be.a('number'); pm.expect(d.code).to.eql(pm.collectionVariables.get('postmanCouponCode')); });",
+                  "pm.collectionVariables.set('postmanCouponId', d.id);",
+                  "pm.collectionVariables.set('postmanCouponVersion', d.version);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: get coupon by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts/{{postmanCouponId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts",
+                "{{postmanCouponId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns the created coupon', () => { const d = pm.response.json(); pm.expect(d.id).to.eql(Number(pm.collectionVariables.get('postmanCouponId'))); pm.expect(d.code).to.eql(pm.collectionVariables.get('postmanCouponCode')); });",
+                  "pm.collectionVariables.set('postmanDiscountVersion', String(pm.response.json().version));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: update coupon using latest version (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts/{{postmanCouponId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts",
+                "{{postmanCouponId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Coupon Updated\",\n  \"code\": \"{{postmanCouponCode}}\",\n  \"type\": \"PERCENTAGE\",\n  \"value\": 15,\n  \"scope\": \"ALL\",\n  \"category\": null,\n  \"accessoryId\": null,\n  \"maxDiscountAmount\": 500,\n  \"minQuantity\": 1,\n  \"validFrom\": null,\n  \"validTo\": null,\n  \"active\": true,\n  \"version\": {{postmanDiscountVersion}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('staleDiscountVersion', String(pm.collectionVariables.get('postmanDiscountVersion')));",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.test('Update changed discount and increments version', () => { pm.expect(d.name).to.eql('Postman Test Coupon Updated'); pm.expect(d.value).to.eql(15); pm.expect(Number(d.version)).to.be.greaterThan(Number(pm.collectionVariables.get('postmanDiscountVersion'))); });",
+                  "pm.collectionVariables.set('postmanDiscountVersion', String(d.version));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: stale version update is rejected (409)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts/{{postmanCouponId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts",
+                "{{postmanCouponId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Stale Update Should Fail\",\n  \"code\": \"{{postmanCouponCode}}\",\n  \"type\": \"PERCENTAGE\",\n  \"value\": 15,\n  \"scope\": \"ALL\",\n  \"category\": null,\n  \"accessoryId\": null,\n  \"maxDiscountAmount\": 500,\n  \"minQuantity\": 1,\n  \"validFrom\": null,\n  \"validTo\": null,\n  \"active\": true,\n  \"version\": {{staleDiscountVersion}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Run after the successful update. Uses deliberately stale version 0; if your database returns another initial version, set staleDiscountVersion to the version from before the update."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Stale version returns 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: create automatic promotion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Automatic Promotion\",\n  \"code\": null,\n  \"type\": \"FLAT\",\n  \"value\": 100,\n  \"scope\": \"CATEGORY\",\n  \"category\": \"interior\",\n  \"accessoryId\": null,\n  \"maxDiscountAmount\": null,\n  \"minQuantity\": 1,\n  \"validFrom\": null,\n  \"validTo\": null,\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test('Promotion has no coupon code and targets category', () => { pm.expect(d.id).to.be.a('number'); pm.expect(d.code).to.be.null; pm.expect(d.scope).to.eql('CATEGORY'); pm.expect(d.category).to.eql('interior'); });",
+                  "pm.collectionVariables.set('postmanPromotionId', d.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pricing & Quotes",
+      "description": "Quote API test cases: basic and multi-item pricing, duplicate-item merge, coupon application, vehicle-aware quote, validation/auth failures, plus accessory price history.",
+      "item": [
+        {
+          "name": "Quote: basic cart pricing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"accessoryId\": {{accessoryId}}, \"quantity\": 1 }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "pm.test('Quote contains expected fields', () => pm.expect(q).to.include.keys('lines','subtotal','discountTotal','taxTotal','grandTotal','currency','warnings','quotedAt'));",
+                  "pm.test('INR currency and one line', () => { pm.expect(q.currency).to.eql('INR'); pm.expect(q.lines).to.have.lengthOf(1); });",
+                  "pm.test('Totals reconcile', () => pm.expect(Math.round((q.subtotal - q.discountTotal + q.taxTotal) * 100)).to.eql(Math.round(q.grandTotal * 100)));",
+                  "pm.collectionVariables.set('lastQuoteGrandTotal', String(q.grandTotal)); pm.collectionVariables.set('lastQuoteSubtotal', String(q.subtotal));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: multiple accessories",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"accessoryId\": {{accessoryId}}, \"quantity\": 1 },\n    { \"accessoryId\": {{accessoryId2}}, \"quantity\": 2 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "pm.test('Both accessories are quoted', () => pm.expect(q.lines.map(x => x.accessoryId)).to.include.members([Number(pm.collectionVariables.get('accessoryId')), Number(pm.collectionVariables.get('accessoryId2'))]));",
+                  "pm.test('Totals reconcile', () => pm.expect(Math.round((q.subtotal - q.discountTotal + q.taxTotal) * 100)).to.eql(Math.round(q.grandTotal * 100)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: duplicate accessory lines are merged",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"accessoryId\": {{accessoryId}}, \"quantity\": 1 },\n    { \"accessoryId\": {{accessoryId}}, \"quantity\": 2 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "pm.test('Duplicate IDs merge into one line with quantity 3', () => { const lines = q.lines.filter(x => x.accessoryId === Number(pm.collectionVariables.get('accessoryId'))); pm.expect(lines).to.have.lengthOf(1); pm.expect(lines[0].quantity).to.eql(3); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: apply created coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"accessoryId\": {{accessoryId}}, \"quantity\": 1 }],\n  \"couponCode\": \"{{postmanCouponCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Depends on the coupon created in Discounts and that coupon must apply to the accessory category/scope."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 when coupon applies', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "pm.test('Coupon is reflected in quote', () => { pm.expect(q.couponCode).to.eql(pm.collectionVariables.get('postmanCouponCode')); pm.expect(q.couponApplied).to.eql(true); });",
+                  "pm.test('Totals reconcile', () => pm.expect(Math.round((q.subtotal - q.discountTotal + q.taxTotal) * 100)).to.eql(Math.round(q.grandTotal * 100)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: invalid coupon rejected (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"accessoryId\": {{accessoryId}}, \"quantity\": 1 }],\n  \"couponCode\": \"NO_SUCH_COUPON_123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid coupon returns 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error explains coupon problem', () => pm.expect(pm.response.json().message).to.include('not valid'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: empty items rejected (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"items\": [] }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Empty items returns 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: quantity zero rejected (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"accessoryId\": {{accessoryId}}, \"quantity\": 0 }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Quantity zero returns 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: quantity above maximum rejected (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"accessoryId\": {{accessoryId}}, \"quantity\": 101 }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Quantity over 100 returns 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: unknown accessory rejected (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"accessoryId\": 999999, \"quantity\": 1 }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unknown accessory returns 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: missing authentication (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"accessoryId\": {{accessoryId}}, \"quantity\": 1 }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Missing token returns 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote: customer-owned garage vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pricing/quote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pricing",
+                "quote"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"accessoryId\": {{accessoryId}}, \"quantity\": 1 }],\n  \"vehicleId\": {{primaryVehicleId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Requires primaryVehicleId to be populated by Customer Garage setup and to belong to customerToken."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 for customer-owned vehicle', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "pm.test('Quote identifies selected vehicle', () => pm.expect(q.vehicleId).to.eql(Number(pm.collectionVariables.get('primaryVehicleId'))));",
+                  "pm.test('Line warnings is an array', () => pm.expect(q.lines[0].warnings).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: price history of the accessory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId}}/price-history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories",
+                "{{accessoryId}}",
+                "price-history"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Initial price recorded', () => pm.expect(pm.response.json().totalElements).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: delete test coupon",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts/{{postmanCouponId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts",
+                "{{postmanCouponId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: verify deleted coupon returns 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/discounts/{{postmanCouponId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "discounts",
+                "{{postmanCouponId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "pm.collectionVariables.unset('postmanCouponId');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete accessory",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "accessories",
+                "{{accessoryId2}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Orders & Stock Detection",
+      "item": [
+        {
+          "name": "Create order and deduct stock",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{lastOrderIdempotencyKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"accessoryId\": \"{{accessoryId}}\",\n      \"quantity\": {{orderQuantity}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.info.requestName === 'Create order and deduct stock' && !pm.collectionVariables.get('lastOrderIdempotencyKey')) pm.collectionVariables.set('lastOrderIdempotencyKey', 'order-' + Date.now() + '-' + Math.random().toString(16).slice(2));",
+                  "if (pm.info.requestName === 'Insufficient stock rejects whole order' && !pm.collectionVariables.get('insufficientStockKey')) pm.collectionVariables.set('insufficientStockKey', 'insufficient-' + pm.collectionVariables.get('lastOrderIdempotencyKey'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Order created',()=>pm.response.to.have.status(201));",
+                  "if(pm.response.code===201){const id=pm.response.json().id;pm.collectionVariables.set('orderId',id);pm.collectionVariables.set('createdOrderId',id);}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repeat same idempotency key and payload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{lastOrderIdempotencyKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"accessoryId\": \"{{accessoryId}}\",\n      \"quantity\": {{orderQuantity}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Idempotent retry returns existing order',()=>pm.expect(pm.response.code).to.be.oneOf([200,201]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same idempotency key different payload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{lastOrderIdempotencyKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"accessoryId\": \"{{accessoryId2}}\",\n      \"quantity\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Conflicting idempotency payload rejected',()=>pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Duplicate accessory lines are merged",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{lastOrderIdempotencyKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"accessoryId\": {{accessoryId}},\n      \"quantity\": 1\n    },\n    {\n      \"accessoryId\": {{accessoryId}},\n      \"quantity\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "description": "Checks duplicate item handling; expected total quantity is 3 if the service merges duplicate lines and stock is sufficient.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.upsert({key:'Idempotency-Key', value:'order-' + Date.now() + '-' + Math.random().toString(16).slice(2)});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Order creation returns 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { const b = pm.response.json(); if (b.id !== undefined) { pm.collectionVariables.set('createdOrderId', b.id); pm.collectionVariables.set('orderId', b.id); } }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create order with coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{lastOrderIdempotencyKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"accessoryId\": {{accessoryId}},\n      \"quantity\": 1\n    }\n  ],\n  \"couponCode\": \"{{postmanCouponCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "description": "Uses the coupon code generated by the Discounts tests. Run after creating an eligible coupon.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.upsert({key:'Idempotency-Key', value:'order-' + Date.now() + '-' + Math.random().toString(16).slice(2)});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Order creation returns 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { const b = pm.response.json(); if (b.id !== undefined) { pm.collectionVariables.set('createdOrderId', b.id); pm.collectionVariables.set('orderId', b.id); } }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{lastOrderIdempotencyKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"accessoryId\": {{accessoryId}},\n      \"quantity\": 1\n    }\n  ],\n  \"couponCode\": \"INVALID_COUPON_XYZ\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "description": "Negative coupon case; expected rejection if the service validates coupon codes during order creation.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.upsert({key:'Idempotency-Key', value:'order-' + Date.now() + '-' + Math.random().toString(16).slice(2)});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid order request is rejected', () => pm.expect([400,409,422]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Order with missing Idempotency-Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"accessoryId\": {{accessoryId}},\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "description": "Negative idempotency case. The API may or may not require this header depending on implementation.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Missing idempotency key is rejected if required by this API', () => pm.expect([400,422]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Order history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/my?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "my"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Order history succeeds',()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get own order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Own order readable',()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel order and restore stock",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "cancel"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Order cancellation succeeds',()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel already cancelled order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "cancel"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Second cancellation rejected',()=>pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Insufficient stock rejects whole order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{insufficientStockKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"accessoryId\": \"{{accessoryId}}\",\n      \"quantity\": {{insufficientStockQuantity}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.info.requestName === 'Create order and deduct stock' && !pm.collectionVariables.get('lastOrderIdempotencyKey')) pm.collectionVariables.set('lastOrderIdempotencyKey', 'order-' + Date.now() + '-' + Math.random().toString(16).slice(2));",
+                  "if (pm.info.requestName === 'Insufficient stock rejects whole order' && !pm.collectionVariables.get('insufficientStockKey')) pm.collectionVariables.set('insufficientStockKey', 'insufficient-' + pm.collectionVariables.get('lastOrderIdempotencyKey'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Insufficient stock rejected',()=>pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Inventory Management",
+      "description": "Inventory reports, stock movement/restock, and access-control tests.",
+      "item": [
+        {
+          "name": "Customer cannot use the admin API (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/report?days={{inventoryReportDays}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "{{inventoryReportDays}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{demoCustomerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: inventory report (low stock, reorder, fast movers)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/report?days={{inventoryReportDays}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "{{inventoryReportDays}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('Mud flaps out of stock', () => pm.expect(r.outOfStockItems.map(i => i.name)).to.include('Mud Flaps'));",
+                  "pm.test('Roof rack low on stock', () => pm.expect(r.lowStockItems.map(i => i.name)).to.include('Roof Rack'));",
+                  "pm.test('Phone mount is a fast mover', () => pm.expect(r.fastMovingProducts.map(i => i.name)).to.include('Magnetic Phone Mount'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: restock mud flaps (audited adjustment)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{mudFlapsId}}/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "{{mudFlapsId}}",
+                "movements"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"ADJUSTMENT\",\n  \"quantityDelta\": {{stockAdjustmentQuantity}},\n  \"note\": \"{{stockAdjustmentReason}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Stock after = 20', () => pm.expect(pm.response.json().stockAfter).to.eql(20));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: adjustment with zero delta is rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{matsId}}/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "{{matsId}}",
+                "movements"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"ADJUSTMENT\",\n  \"quantityDelta\": 0,\n  \"note\": \"Zero delta edge case\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid zero adjustment is rejected', () => pm.expect(pm.response.code).to.be.oneOf([400,422]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: adjustment without reason is rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{matsId}}/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "{{matsId}}",
+                "movements"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"ADJUSTMENT\",\n  \"quantityDelta\": 5,\n  \"note\": \" \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Missing adjustment reason is rejected', () => pm.expect(pm.response.code).to.be.oneOf([400,422]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: direct SALE movement is rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{matsId}}/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "{{matsId}}",
+                "movements"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"SALE\",\n  \"quantityDelta\": -1,\n  \"note\": \"Must be generated by order\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Direct SALE is rejected', () => pm.expect(pm.response.code).to.be.oneOf([400,422]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: direct RESTORATION movement is rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{matsId}}/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "{{matsId}}",
+                "movements"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"RESTORATION\",\n  \"quantityDelta\": 1,\n  \"note\": \"Must be generated by cancellation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Direct RESTORATION is rejected', () => pm.expect(pm.response.code).to.be.oneOf([400,422]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: invalid movement enum is rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{matsId}}/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "{{matsId}}",
+                "movements"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"UNKNOWN\",\n  \"quantityDelta\": 2,\n  \"note\": \"Bad enum\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unknown movement type is rejected', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: movement for missing accessory returns 404",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/999999/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "999999",
+                "movements"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"ADJUSTMENT\",\n  \"quantityDelta\": 2,\n  \"note\": \"Missing accessory test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unknown accessory returns 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: movement history start after end is rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{matsId}}/movements?from=2026-10-20T00:00:00Z&to=2026-10-01T00:00:00Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "{{matsId}}",
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-10-20T00:00:00Z"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-10-01T00:00:00Z"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid date range is rejected', () => pm.expect(pm.response.code).to.be.oneOf([400,422]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: movement history invalid type is rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/{{matsId}}/movements?type=NOT_A_MOVEMENT",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "{{matsId}}",
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "NOT_A_MOVEMENT"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid movement filter returns 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: movement history for missing accessory returns 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/accessories/999999/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "accessories",
+                "999999",
+                "movements"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unknown accessory returns 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: report rejects days below minimum",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/report?days=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('days below minimum is rejected', () => pm.expect(pm.response.code).to.be.oneOf([400,422]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin: report rejects days above maximum",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/report?days=366",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "366"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('days above maximum is rejected', () => pm.expect(pm.response.code).to.be.oneOf([400,422]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "No token cannot view inventory report (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/inventory/report?days={{inventoryReportDays}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "inventory",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "{{inventoryReportDays}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Missing token returns 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User Roles & Permissions",
+      "description": "List users, promote/demote roles, and role-validation/access tests.",
       "item": [
         {
           "name": "List users",
@@ -2733,509 +5625,6 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 400', () => pm.response.to.have.status(400));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "07 Cleanup",
-      "description": "Deletes the test vehicle. Accessories with stock history are kept on purpose (audit trail), so this run leaves its two accessories behind; run against a scratch database.",
-      "item": [
-        {
-          "name": "Delete accessory with stock history is refused (422)",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "accessories",
-                "{{accessoryId}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 422', () => pm.response.to.have.status(422));",
-                  "pm.test('Explains the stock history rule', () => pm.expect(pm.response.json().message).to.include('stock movement'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Vehicle keeps both accessories",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "vehicles",
-                "{{vehicleId}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.test('Both accessories still mapped', () => pm.expect(body.accessories).to.have.lengthOf(2));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Delete vehicle",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "vehicles",
-                "{{vehicleId}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Accessory survives vehicle delete",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId2}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "accessories",
-                "{{accessoryId2}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Delete second accessory",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/accessories/{{accessoryId2}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "accessories",
-                "{{accessoryId2}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Deleted vehicle is gone (404)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "admin",
-                "vehicles",
-                "{{vehicleId}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "08 Logout",
-      "description": "Logout revokes the given refresh token; no access token is needed. Access tokens are short-lived and keep working until they expire (30 minutes by default).",
-      "item": [
-        {
-          "name": "Logout customer (refresh token only)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "logout"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "pm.test('Logout message', () => pm.expect(pm.response.json().message).to.eql('Logout successful'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Logged-out refresh token cannot be used (401)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/refresh",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "refresh"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Access token still works until it expires (by design)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/me/vehicles",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "me",
-                "vehicles"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{customerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Logout again is idempotent (200)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "logout"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Logout without body (400)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "logout"
-              ]
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Logout with blank refresh token (400)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "logout"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"   \"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
-                  "pm.test('Field error on refreshToken', () => pm.expect(pm.response.json().fieldErrors).to.have.property('refreshToken'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Logout admin",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "logout"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{adminRefreshToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
                 ]
               }
             }
