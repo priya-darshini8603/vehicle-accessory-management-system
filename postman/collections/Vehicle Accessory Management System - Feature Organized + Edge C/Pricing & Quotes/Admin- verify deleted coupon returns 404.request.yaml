@@ -1,0 +1,11 @@
+$kind: http-request
+name: "Admin: verify deleted coupon returns 404"
+url: "{{baseUrl}}/api/admin/discounts/{{postmanCouponId}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 404', () => pm.response.to.have.status(404));
+      pm.collectionVariables.unset('postmanCouponId');
+    language: text/javascript
+order: 14000

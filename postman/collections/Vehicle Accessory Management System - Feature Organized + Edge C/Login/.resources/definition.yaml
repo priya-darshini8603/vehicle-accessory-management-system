@@ -1,0 +1,3 @@
+$kind: collection
+description: Login success and failure cases for admin, customer, and demo customer.
+order: 2000

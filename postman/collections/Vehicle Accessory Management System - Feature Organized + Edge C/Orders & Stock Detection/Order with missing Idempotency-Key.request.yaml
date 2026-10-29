@@ -1,0 +1,25 @@
+$kind: http-request
+url: "{{baseUrl}}/api/orders"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "accessoryId": {{accessoryId}},
+          "quantity": 1
+        }
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Missing idempotency key is rejected if required by this API', () => pm.expect([400,422]).to.include(pm.response.code));
+    language: text/javascript
+order: 7000

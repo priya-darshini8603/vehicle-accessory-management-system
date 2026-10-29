@@ -1,0 +1,27 @@
+$kind: http-request
+name: "Quote: apply created coupon"
+description: Depends on the coupon created in Discounts and that coupon must apply to the accessory category/scope.
+url: "{{baseUrl}}/api/pricing/quote"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [{ "accessoryId": {{accessoryId}}, "quantity": 1 }],
+      "couponCode": "{{postmanCouponCode}}"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200 when coupon applies', () => pm.response.to.have.status(200));
+      const q = pm.response.json();
+      pm.test('Coupon is reflected in quote', () => { pm.expect(q.couponCode).to.eql(pm.collectionVariables.get('postmanCouponCode')); pm.expect(q.couponApplied).to.eql(true); });
+      pm.test('Totals reconcile', () => pm.expect(Math.round((q.subtotal - q.discountTotal + q.taxTotal) * 100)).to.eql(Math.round(q.grandTotal * 100)));
+    language: text/javascript
+order: 4000

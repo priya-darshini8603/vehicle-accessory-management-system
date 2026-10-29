@@ -1,0 +1,20 @@
+workspace:
+  id: 469289d8-b246-47c2-bccd-864c3b14c612
+
+localResources:
+  collections:
+    - ../backend/postman/Vehicle Accessory Management System
+  environments:
+    - ../postman/environments/VAMS Local.environment.yaml
+    - ../postman/environments/VAMS Local.environment.json
+    - ../backend/postman/vams-local.postman_environment.json
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ../postman/collections/Vehicle Accessory Management System - Feature Organized + Edge C: 5e5d837b-70f7-46c6-9ae0-50ec2658f75f
+  environments:
+    ../postman/environments/VAMS Local.environment.yaml: da0cc477-9c37-5177-85b9-02cc138e50a2
+  globals:
+    ../postman/globals/workspace.globals.yaml: afe41dfd-3eac-46dd-8256-227286f75488

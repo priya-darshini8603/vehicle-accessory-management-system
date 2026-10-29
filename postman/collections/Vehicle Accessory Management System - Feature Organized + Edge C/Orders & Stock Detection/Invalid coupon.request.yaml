@@ -1,0 +1,30 @@
+$kind: http-request
+url: "{{baseUrl}}/api/orders"
+method: POST
+headers:
+  Content-Type: application/json
+  Idempotency-Key: "{{lastOrderIdempotencyKey}}"
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "accessoryId": {{accessoryId}},
+          "quantity": 1
+        }
+      ],
+      "couponCode": "INVALID_COUPON_XYZ"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: beforeRequest
+    code: pm.request.headers.upsert({key:'Idempotency-Key', value:'order-' + Date.now() + '-' + Math.random().toString(16).slice(2)});
+    language: text/javascript
+  - type: afterResponse
+    code: pm.test('Invalid order request is rejected', () => pm.expect([400,409,422]).to.include(pm.response.code));
+    language: text/javascript
+order: 6000

@@ -1,0 +1,19 @@
+$kind: http-request
+name: "Quote: missing authentication (401)"
+url: "{{baseUrl}}/api/pricing/quote"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [{ "accessoryId": {{accessoryId}}, "quantity": 1 }]
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: pm.test('Missing token returns 401', () => pm.response.to.have.status(401));
+    language: text/javascript
+order: 10000

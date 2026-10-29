@@ -1,0 +1,27 @@
+$kind: http-request
+name: "Quote: duplicate accessory lines are merged"
+url: "{{baseUrl}}/api/pricing/quote"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        { "accessoryId": {{accessoryId}}, "quantity": 1 },
+        { "accessoryId": {{accessoryId}}, "quantity": 2 }
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const q = pm.response.json();
+      pm.test('Duplicate IDs merge into one line with quantity 3', () => { const lines = q.lines.filter(x => x.accessoryId === Number(pm.collectionVariables.get('accessoryId'))); pm.expect(lines).to.have.lengthOf(1); pm.expect(lines[0].quantity).to.eql(3); });
+    language: text/javascript
+order: 3000

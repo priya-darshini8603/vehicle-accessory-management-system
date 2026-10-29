@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{baseUrl}}/api/compatibility?vehicleNumber={{vehicleNumber}}"
+method: GET
+queryParams:
+  vehicleNumber: "{{vehicleNumber}}"
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test('Two compatible accessories', () => pm.expect(body.totalAccessories).to.eql(2));
+      pm.test('Sorted by category then name', () => pm.expect(body.compatibleAccessories.map(a => a.category)).to.eql(['Exterior', 'Interior']));
+    language: text/javascript
+order: 1000

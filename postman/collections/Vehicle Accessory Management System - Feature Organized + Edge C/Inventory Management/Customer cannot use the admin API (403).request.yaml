@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/admin/inventory/report?days={{inventoryReportDays}}"
+method: GET
+queryParams:
+  days: "{{inventoryReportDays}}"
+auth:
+  type: bearer
+  credentials:
+    token: "{{demoCustomerToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Status is 403', () => pm.response.to.have.status(403));
+    language: text/javascript
+order: 1000

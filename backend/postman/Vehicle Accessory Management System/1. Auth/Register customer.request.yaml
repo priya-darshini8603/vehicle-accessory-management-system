@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "fullName": "Asha Rao",
+      "email": "{{customerEmail}}",
+      "password": "{{customerPassword}}",
+      "phoneNumber": "+91 98765 43210"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Created or already exists', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));
+      if (pm.response.code < 300) pm.collectionVariables.set('customerId', pm.response.json().id);
+    language: text/javascript
+order: 1000

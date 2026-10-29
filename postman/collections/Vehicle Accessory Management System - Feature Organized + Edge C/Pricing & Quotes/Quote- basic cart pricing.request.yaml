@@ -1,0 +1,27 @@
+$kind: http-request
+name: "Quote: basic cart pricing"
+url: "{{baseUrl}}/api/pricing/quote"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [{ "accessoryId": {{accessoryId}}, "quantity": 1 }]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const q = pm.response.json();
+      pm.test('Quote contains expected fields', () => pm.expect(q).to.include.keys('lines','subtotal','discountTotal','taxTotal','grandTotal','currency','warnings','quotedAt'));
+      pm.test('INR currency and one line', () => { pm.expect(q.currency).to.eql('INR'); pm.expect(q.lines).to.have.lengthOf(1); });
+      pm.test('Totals reconcile', () => pm.expect(Math.round((q.subtotal - q.discountTotal + q.taxTotal) * 100)).to.eql(Math.round(q.grandTotal * 100)));
+      pm.collectionVariables.set('lastQuoteGrandTotal', String(q.grandTotal)); pm.collectionVariables.set('lastQuoteSubtotal', String(q.subtotal));
+    language: text/javascript
+order: 1000

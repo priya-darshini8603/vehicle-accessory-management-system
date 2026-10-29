@@ -1,0 +1,15 @@
+$kind: collection
+description: Run top-to-bottom (Collection Runner works). 'Login as admin' uses the bootstrap admin from ADMIN_EMAIL / ADMIN_PASSWORD (dev defaults shown in collection variables). Tokens and ids are captured automatically.
+variables:
+  baseUrl: http://localhost:8080
+  adminEmail: admin@vams.local
+  adminPassword: Admin@12345678
+  customerEmail: customer@example.com
+  customerPassword: Customer@123456
+  vehicleNumber: KA01AB1234
+  adminToken: ""
+  customerToken: ""
+  customerId: ""
+  vehicleId: ""
+  accessoryId: ""
+  accessoryId2: ""

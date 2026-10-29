@@ -1,0 +1,3 @@
+$kind: collection
+description: Admin accessory CRUD and accessory price history.
+order: 5000

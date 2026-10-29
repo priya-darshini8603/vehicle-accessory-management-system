@@ -1,0 +1,11 @@
+$kind: http-request
+url: "{{baseUrl}}/api/admin/accessories/{{accessoryId}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test('Correct accessory', () => pm.expect(body.id).to.eql(Number(pm.collectionVariables.get('accessoryId'))));
+    language: text/javascript
+order: 6000

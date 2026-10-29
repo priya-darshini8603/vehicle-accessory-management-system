@@ -1,0 +1,24 @@
+$kind: http-request
+name: "Quote: invalid coupon rejected (400)"
+url: "{{baseUrl}}/api/pricing/quote"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [{ "accessoryId": {{accessoryId}}, "quantity": 1 }],
+      "couponCode": "NO_SUCH_COUPON_123"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Invalid coupon returns 400', () => pm.response.to.have.status(400));
+      pm.test('Error explains coupon problem', () => pm.expect(pm.response.json().message).to.include('not valid'));
+    language: text/javascript
+order: 5000

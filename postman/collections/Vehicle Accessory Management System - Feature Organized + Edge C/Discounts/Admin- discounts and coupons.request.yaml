@@ -1,0 +1,22 @@
+$kind: http-request
+name: "Admin: discounts and coupons"
+url: "{{baseUrl}}/api/admin/discounts?size=50"
+method: GET
+queryParams:
+  size: "50"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      pm.test('Live flag shown', () => pm.expect(pm.response.json().content[0]).to.have.property('live'));
+      const deal = pm.response.json().content.find(d => d.name === 'Buy 4 tyres, save 15%');
+      pm.test('Discounts expose a version for safe editing', () => pm.expect(deal.version).to.be.a('number'));
+      pm.collectionVariables.set('tyreDealId', deal.id);
+      // The full PUT body with the version we just read. Extending the end date is a real change (an identical
+      // save is a no-op and keeps the version) that leaves every price unchanged.
+      const body = (({name, code, type, value, scope, category, accessoryId, maxDiscountAmount, minQuantity, validFrom, validTo, active, version}) =>
+        ({name, code, type, value, scope, category, accessoryId, maxDiscountAmount, minQuantity, validFrom, validTo, active, version}))(deal);
+      body.validTo = new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString();
+      pm.collectionVariables.set('tyreDealBody', JSON.stringify(body));
+    language: text/javascript
+order: 1000

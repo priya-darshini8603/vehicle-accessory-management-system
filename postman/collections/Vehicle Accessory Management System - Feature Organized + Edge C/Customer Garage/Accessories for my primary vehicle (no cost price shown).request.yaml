@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}/api/me/vehicles/{{primaryVehicleId}}/accessories"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      const byName = n => body.compatibleAccessories.find(a => a.name === n);
+      pm.test('Cost price is hidden from customers', () => body.compatibleAccessories.forEach(a => pm.expect(a).to.not.have.property('costPrice')));
+      pm.collectionVariables.set('matsId', byName('All-Weather Floor Mats').id);
+      pm.collectionVariables.set('tyreId', byName('Tyre 185/65 R15').id);
+      pm.collectionVariables.set('mudFlapsId', byName('Mud Flaps').id);
+    language: text/javascript
+order: 2000

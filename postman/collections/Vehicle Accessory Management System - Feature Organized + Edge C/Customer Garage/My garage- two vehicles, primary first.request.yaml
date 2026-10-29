@@ -1,0 +1,19 @@
+$kind: http-request
+name: "My garage: two vehicles, primary first"
+url: "{{baseUrl}}/api/me/vehicles"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const garage = pm.response.json();
+      pm.test('Two vehicles', () => pm.expect(garage.length).to.eql(2));
+      pm.test('Exactly one primary, listed first', () => { pm.expect(garage[0].primary).to.be.true; pm.expect(garage.filter(v => v.primary).length).to.eql(1); });
+      pm.collectionVariables.set('primaryVehicleId', garage[0].id);
+      pm.collectionVariables.set('secondVehicleId', garage[1].id);
+    language: text/javascript
+order: 1000

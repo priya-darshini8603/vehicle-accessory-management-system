@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}/api/admin/vehicles"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "vehicleNumber": "",
+      "make": "",
+      "year": 1700
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{adminToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Status is 400', () => pm.response.to.have.status(400));
+    language: text/javascript
+order: 3000

@@ -1,0 +1,9 @@
+$kind: http-request
+name: "Admin: delete test coupon"
+url: "{{baseUrl}}/api/admin/discounts/{{postmanCouponId}}"
+method: DELETE
+scripts:
+  - type: afterResponse
+    code: pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));
+    language: text/javascript
+order: 13000

@@ -35,7 +35,6 @@ build/
 
 docs/
 
-postman/
 
 ### Local secrets ###
 .env

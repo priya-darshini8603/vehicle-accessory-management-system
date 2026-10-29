@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/compatibility/vehicles/ZZ00ZZ0000/accessories"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 404', () => pm.response.to.have.status(404));
+      pm.test('Error message', () => pm.expect(pm.response.json().message).to.eql("Vehicle with number 'ZZ00ZZ0000' not found"));
+    language: text/javascript
+order: 4000

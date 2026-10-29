@@ -1,0 +1,33 @@
+$kind: http-request
+url: "{{baseUrl}}/api/orders"
+method: POST
+headers:
+  Content-Type: application/json
+  Idempotency-Key: "{{lastOrderIdempotencyKey}}"
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "accessoryId": "{{accessoryId}}",
+          "quantity": {{orderQuantity}}
+        }
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: beforeRequest
+    code: |-
+      if (pm.info.requestName === 'Create order and deduct stock' && !pm.collectionVariables.get('lastOrderIdempotencyKey')) pm.collectionVariables.set('lastOrderIdempotencyKey', 'order-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+      if (pm.info.requestName === 'Insufficient stock rejects whole order' && !pm.collectionVariables.get('insufficientStockKey')) pm.collectionVariables.set('insufficientStockKey', 'insufficient-' + pm.collectionVariables.get('lastOrderIdempotencyKey'));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('Order created',()=>pm.response.to.have.status(201));
+      if(pm.response.code===201){const id=pm.response.json().id;pm.collectionVariables.set('orderId',id);pm.collectionVariables.set('createdOrderId',id);}
+    language: text/javascript
+order: 1000

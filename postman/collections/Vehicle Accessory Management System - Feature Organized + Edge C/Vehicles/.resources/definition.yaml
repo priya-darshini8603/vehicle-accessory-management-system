@@ -1,0 +1,3 @@
+$kind: collection
+description: Admin vehicle CRUD and vehicle access-control cases.
+order: 6000

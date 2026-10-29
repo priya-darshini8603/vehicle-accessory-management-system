@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{baseUrl}}/api/compatibility/vehicles/{{vehicleNumberLower}}/accessories"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test('Same vehicle found', () => pm.expect(body.vehicle.id).to.eql(Number(pm.collectionVariables.get('vehicleId'))));
+    language: text/javascript
+  - type: beforeRequest
+    code: pm.variables.set('vehicleNumberLower', pm.environment.get('vehicleNumber').toLowerCase());
+    language: text/javascript
+order: 2000

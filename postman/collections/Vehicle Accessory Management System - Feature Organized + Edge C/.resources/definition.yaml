@@ -1,0 +1,63 @@
+$kind: collection
+name: Vehicle Accessory Management System - Feature Organized + Edge Cases
+description: "End-to-end API suite. Select the **VAMS Local** environment, start the backend, then run the whole collection with the Collection Runner (folders run top to bottom). Tokens and ids are captured automatically into collection variables.\n\nAuth: the collection uses `Bearer {{adminToken}}` by default; customer and public requests override it."
+variables:
+  adminToken: ""
+  customerToken: ""
+  customerId: ""
+  vehicleId: ""
+  accessoryId: ""
+  accessoryId2: ""
+  demoCustomerToken: ""
+  demoRefreshToken: ""
+  oldRefreshToken: ""
+  primaryVehicleId: ""
+  secondVehicleId: ""
+  matsId: ""
+  mudFlapsId: ""
+  adminRefreshToken: ""
+  customerRefreshToken: ""
+  lastOrderIdempotencyKey: ""
+  insufficientStockKey: ""
+  orderId: ""
+  inventoryReportDays: "30"
+  stockAdjustmentQuantity: "20"
+  stockAdjustmentReason: Supplier delivery (Postman test)
+  orderQuantity: "1"
+  insufficientStockQuantity: "999999"
+  baseUrl: http://localhost:8080
+  adminEmail: admin@vams.local
+  adminPassword: Admin@12345678
+  customerEmail: customer@example.com
+  customerPassword: Customer@123456
+  demoCustomerEmail: demo.customer@vams.local
+  demoCustomerPassword: Customer@123456
+  vehicleNumber: KA01AB1234
+  vehicleNumberLower: ka01ab1234
+  garageVehicleId: ""
+  garageVehicleNumber: KA05MN7621
+  secondGarageVehicleNumber: KA03PQ8642
+  secondGarageVehicleId: ""
+  postmanCouponCode: ""
+  postmanCouponId: ""
+  postmanDiscountVersion: ""
+  staleDiscountVersion: "0"
+scripts:
+  - type: http:afterResponse
+    code: |-
+      // Runs after EVERY request in the collection.
+      pm.test('Responds in under 2s', () => pm.expect(pm.response.responseTime).to.be.below(2000));
+      if (pm.response.code >= 400) {
+        pm.test('Error body has the standard shape', () => {
+          const e = pm.response.json();
+          pm.expect(e).to.include.keys('timestamp', 'status', 'error', 'message', 'path');
+          pm.expect(e.status).to.eql(pm.response.code);
+        });
+      }
+    language: text/javascript
+auth:
+  - id: b36fc2ab-e513-4962-a1c4-6641ef9a2448
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

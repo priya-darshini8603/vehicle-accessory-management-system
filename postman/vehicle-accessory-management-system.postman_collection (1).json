@@ -140,12 +140,12 @@
     },
     {
       "key": "adminEmail",
-      "value": "admin@example.com",
+      "value": "admin@vams.local",
       "type": "string"
     },
     {
       "key": "adminPassword",
-      "value": "ChangeMe_Admin123!",
+      "value": "Admin@12345678",
       "type": "string"
     },
     {
@@ -155,17 +155,17 @@
     },
     {
       "key": "customerPassword",
-      "value": "ChangeMe_Customer123!",
+      "value": "Customer@123456",
       "type": "string"
     },
     {
       "key": "demoCustomerEmail",
-      "value": "demo.customer@example.com",
+      "value": "demo.customer@vams.local",
       "type": "string"
     },
     {
       "key": "demoCustomerPassword",
-      "value": "ChangeMe_Demo123!",
+      "value": "Customer@123456",
       "type": "string"
     },
     {
@@ -370,7 +370,9 @@
                   "const body = pm.response.json();",
                   "pm.test('Customer role', () => pm.expect(body.user.role).to.eql('CUSTOMER'));",
                   "pm.collectionVariables.set('demoCustomerToken', body.accessToken);",
-                  "pm.collectionVariables.set('demoRefreshToken', body.refreshToken);"
+                  "pm.collectionVariables.set('demoRefreshToken', body.refreshToken);",
+                    "if (pm.response.code < 300) pm.environment.set('demoCustomerToken', body.accessToken);",
+                    "if (pm.response.code < 300) pm.environment.set('demoRefreshToken', body.refreshToken);"
                 ]
               }
             }
@@ -421,7 +423,9 @@
                   "pm.test('Bearer token issued', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.accessToken).to.be.a('string'); });",
                   "pm.test('User is ADMIN', () => pm.expect(body.user.role).to.eql('ADMIN'));",
                   "if (pm.response.code < 300) pm.collectionVariables.set('adminToken', pm.response.json().accessToken);",
-                  "if (pm.response.code < 300) pm.collectionVariables.set('adminRefreshToken', pm.response.json().refreshToken);"
+                  "if (pm.response.code < 300) pm.collectionVariables.set('adminRefreshToken', pm.response.json().refreshToken);",
+                    "if (pm.response.code < 300) pm.environment.set('adminToken', pm.response.json().accessToken);",
+                    "if (pm.response.code < 300) pm.environment.set('adminRefreshToken', pm.response.json().refreshToken);"
                 ]
               }
             }
@@ -472,7 +476,10 @@
                   "pm.test('User is CUSTOMER', () => pm.expect(body.user.role).to.eql('CUSTOMER'));",
                   "if (pm.response.code < 300) pm.collectionVariables.set('customerToken', pm.response.json().accessToken);",
                   "if (pm.response.code < 300) pm.collectionVariables.set('customerId', pm.response.json().user.id);",
-                  "if (pm.response.code < 300) pm.collectionVariables.set('customerRefreshToken', pm.response.json().refreshToken);"
+                  "if (pm.response.code < 300) pm.collectionVariables.set('customerRefreshToken', pm.response.json().refreshToken);",
+                    "if (pm.response.code < 300) pm.environment.set('customerToken', pm.response.json().accessToken);",
+                    "if (pm.response.code < 300) pm.environment.set('customerRefreshToken', pm.response.json().refreshToken);",
+                    "if (pm.response.code < 300) pm.environment.set('customerId', pm.response.json().user.id);"
                 ]
               }
             }

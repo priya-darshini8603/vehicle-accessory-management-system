@@ -1,0 +1,30 @@
+$kind: http-request
+description: Creates a second distinct vehicle for the authenticated customer. Use a vehicle number that is not already registered to this customer.
+url: "{{baseUrl}}/api/me/vehicles"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "vehicleNumber": "{{secondGarageVehicleNumber}}",
+      "make": "Hyundai",
+      "model": "i20",
+      "year": 2024,
+      "nickname": "Second Car"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 201', () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test('Second vehicle response has expected details', () => { pm.expect(body).to.include.keys('id','vehicleNumber','make','model','year','primary'); pm.expect(body.vehicleNumber).to.eql(pm.collectionVariables.get('secondGarageVehicleNumber')); pm.expect(body.make).to.eql('Hyundai'); pm.expect(body.model).to.eql('i20'); pm.expect(body.nickname).to.eql('Second Car'); });
+      pm.collectionVariables.set('secondGarageVehicleId', body.id);
+      pm.test('Second vehicle has a different ID from the first created vehicle', () => { const firstId = pm.collectionVariables.get('garageVehicleId'); if (firstId) pm.expect(body.id).not.to.eql(firstId); });
+    language: text/javascript
+order: 5000

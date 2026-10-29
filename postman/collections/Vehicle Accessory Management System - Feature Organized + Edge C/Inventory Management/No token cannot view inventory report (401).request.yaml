@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/api/admin/inventory/report?days={{inventoryReportDays}}"
+method: GET
+queryParams:
+  days: "{{inventoryReportDays}}"
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: pm.test('Missing token returns 401', () => pm.response.to.have.status(401));
+    language: text/javascript
+order: 15000

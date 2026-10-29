@@ -1,0 +1,18 @@
+$kind: http-request
+name: "Quote: empty items rejected (400)"
+url: "{{baseUrl}}/api/pricing/quote"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{ "items": [] }'
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Empty items returns 400', () => pm.response.to.have.status(400));
+    language: text/javascript
+order: 6000

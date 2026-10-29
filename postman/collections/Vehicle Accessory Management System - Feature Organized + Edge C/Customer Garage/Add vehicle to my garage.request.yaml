@@ -1,0 +1,29 @@
+$kind: http-request
+description: Owner is taken from the authenticated token; do not send userId.
+url: "{{baseUrl}}/api/me/vehicles"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "vehicleNumber": "{{garageVehicleNumber}}",
+      "make": "Honda",
+      "model": "City",
+      "year": 2023,
+      "nickname": "My Honda"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 201', () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test('Created vehicle response', () => { pm.expect(body).to.include.keys('id','vehicleNumber','make','model','year','primary'); pm.expect(body.nickname).to.eql('My Honda'); });
+      pm.collectionVariables.set('garageVehicleId', body.id);
+    language: text/javascript
+order: 4000

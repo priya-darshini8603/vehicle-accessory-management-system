@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/api/orders/{{orderId}}/cancel"
+method: POST
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Second cancellation rejected',()=>pm.response.to.have.status(409));
+    language: text/javascript
+order: 11000

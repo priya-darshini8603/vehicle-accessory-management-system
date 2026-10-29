@@ -1,0 +1,23 @@
+$kind: http-request
+description: Only nickname is customer-editable.
+url: "{{baseUrl}}/api/me/vehicles/{{garageVehicleId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "nickname": "Daily Driver"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      pm.test('Nickname updated', () => pm.expect(pm.response.json().nickname).to.eql('Daily Driver'));
+    language: text/javascript
+order: 8000

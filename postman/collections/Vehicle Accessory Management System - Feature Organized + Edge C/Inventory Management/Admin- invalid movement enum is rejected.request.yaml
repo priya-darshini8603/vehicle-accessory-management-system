@@ -1,0 +1,23 @@
+$kind: http-request
+name: "Admin: invalid movement enum is rejected"
+url: "{{baseUrl}}/api/admin/inventory/accessories/{{matsId}}/movements"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "type": "UNKNOWN",
+      "quantityDelta": 2,
+      "note": "Bad enum"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{adminToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Unknown movement type is rejected', () => pm.response.to.have.status(400));
+    language: text/javascript
+order: 8000

@@ -1,0 +1,26 @@
+$kind: http-request
+url: "{{baseUrl}}/api/orders"
+method: POST
+headers:
+  Content-Type: application/json
+  Idempotency-Key: "{{lastOrderIdempotencyKey}}"
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "accessoryId": "{{accessoryId}}",
+          "quantity": {{orderQuantity}}
+        }
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Idempotent retry returns existing order',()=>pm.expect(pm.response.code).to.be.oneOf([200,201]));
+    language: text/javascript
+order: 2000

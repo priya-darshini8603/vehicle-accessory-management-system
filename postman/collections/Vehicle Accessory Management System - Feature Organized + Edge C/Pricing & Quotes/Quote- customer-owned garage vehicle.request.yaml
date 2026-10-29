@@ -1,0 +1,27 @@
+$kind: http-request
+name: "Quote: customer-owned garage vehicle"
+description: Requires primaryVehicleId to be populated by Customer Garage setup and to belong to customerToken.
+url: "{{baseUrl}}/api/pricing/quote"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [{ "accessoryId": {{accessoryId}}, "quantity": 1 }],
+      "vehicleId": {{primaryVehicleId}}
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200 for customer-owned vehicle', () => pm.response.to.have.status(200));
+      const q = pm.response.json();
+      pm.test('Quote identifies selected vehicle', () => pm.expect(q.vehicleId).to.eql(Number(pm.collectionVariables.get('primaryVehicleId'))));
+      pm.test('Line warnings is an array', () => pm.expect(q.lines[0].warnings).to.be.an('array'));
+    language: text/javascript
+order: 11000

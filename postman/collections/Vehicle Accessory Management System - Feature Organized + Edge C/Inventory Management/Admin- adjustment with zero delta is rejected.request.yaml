@@ -1,0 +1,23 @@
+$kind: http-request
+name: "Admin: adjustment with zero delta is rejected"
+url: "{{baseUrl}}/api/admin/inventory/accessories/{{matsId}}/movements"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "type": "ADJUSTMENT",
+      "quantityDelta": 0,
+      "note": "Zero delta edge case"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{adminToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Invalid zero adjustment is rejected', () => pm.expect(pm.response.code).to.be.oneOf([400,422]));
+    language: text/javascript
+order: 4000

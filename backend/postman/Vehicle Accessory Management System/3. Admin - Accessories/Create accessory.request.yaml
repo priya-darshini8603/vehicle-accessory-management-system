@@ -1,0 +1,26 @@
+$kind: http-request
+url: "{{baseUrl}}/api/admin/accessories"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "All-Weather Floor Mats",
+      "category": "Interior",
+      "price": 1499.0,
+      "description": "Rubber mats, set of 4",
+      "stockQuantity": 50
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{adminToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 201', () => pm.response.to.have.status(201));
+      if (pm.response.code < 300) pm.collectionVariables.set('accessoryId', pm.response.json().id);
+    language: text/javascript
+order: 1000

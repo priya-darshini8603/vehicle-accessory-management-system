@@ -1,0 +1,19 @@
+$kind: http-request
+description: Run after both Add vehicle requests. Confirms both created vehicle IDs are present in the authenticated customer garage.
+url: "{{baseUrl}}/api/me/vehicles"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      const vehicles = Array.isArray(body) ? body : (body.content || body.vehicles || []);
+      const firstId = pm.collectionVariables.get('garageVehicleId');
+      const secondId = pm.collectionVariables.get('secondGarageVehicleId');
+      pm.test('Both created vehicles are present in the garage response', () => { pm.expect(firstId, 'Run Add vehicle to my garage first').to.be.ok; pm.expect(secondId, 'Run Add second vehicle to my garage first').to.be.ok; const ids = vehicles.map(v => String(v.id)); pm.expect(ids).to.include(String(firstId)); pm.expect(ids).to.include(String(secondId)); });
+    language: text/javascript
+order: 6000

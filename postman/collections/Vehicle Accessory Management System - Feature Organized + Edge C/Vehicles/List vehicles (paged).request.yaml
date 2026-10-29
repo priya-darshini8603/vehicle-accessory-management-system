@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/api/admin/vehicles?page=0&size=20&sort=vehicleNumber,asc"
+method: GET
+queryParams:
+  page: "0"
+  size: "20"
+  sort: vehicleNumber,asc
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test('Contains created vehicle', () => pm.expect(body.content.map(v => v.id)).to.include(Number(pm.collectionVariables.get('vehicleId'))));
+    language: text/javascript
+order: 4000

@@ -1,0 +1,3 @@
+$kind: collection
+description: Inventory reports, stock movement/restock, and access-control tests.
+order: 13000

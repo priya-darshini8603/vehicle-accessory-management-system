@@ -1,0 +1,23 @@
+$kind: http-request
+name: "Admin: movement for missing accessory returns 404"
+url: "{{baseUrl}}/api/admin/inventory/accessories/999999/movements"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "type": "ADJUSTMENT",
+      "quantityDelta": 2,
+      "note": "Missing accessory test"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{adminToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Unknown accessory returns 404', () => pm.response.to.have.status(404));
+    language: text/javascript
+order: 9000

@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/api/orders/my?page=0&size=20"
+method: GET
+queryParams:
+  page: "0"
+  size: "20"
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Order history succeeds',()=>pm.response.to.have.status(200));
+    language: text/javascript
+order: 8000

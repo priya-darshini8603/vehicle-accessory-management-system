@@ -1,0 +1,3 @@
+$kind: collection
+description: Logout behavior, validation, idempotency, and post-logout access-token behavior.
+order: 3000

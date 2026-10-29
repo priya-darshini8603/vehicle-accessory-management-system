@@ -1,0 +1,19 @@
+$kind: http-request
+name: "Refresh: unknown token (401)"
+url: "{{baseUrl}}/api/auth/refresh"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "refreshToken": "not-a-real-refresh-token"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: pm.test('Unknown refresh token is rejected', () => pm.response.to.have.status(401));
+    language: text/javascript
+order: 6000

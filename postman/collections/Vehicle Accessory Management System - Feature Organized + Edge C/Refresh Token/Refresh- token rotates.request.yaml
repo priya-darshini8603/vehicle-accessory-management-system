@@ -1,0 +1,31 @@
+$kind: http-request
+name: "Refresh: token rotates"
+url: "{{baseUrl}}/api/auth/refresh"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "refreshToken": "{{adminRefreshToken}}"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.collectionVariables.set('oldRefreshToken', pm.collectionVariables.get('adminRefreshToken'));
+      pm.collectionVariables.set('customerRefreshToken', body.refreshToken);
+      pm.collectionVariables.set('customerAccessToken', body.accessToken);
+      pm.collectionVariables.set('adminRefreshToken', body.refreshToken);
+      pm.collectionVariables.set('adminToken', body.accessToken);
+      pm.environment.set('customerRefreshToken', body.refreshToken);
+      pm.environment.set('customerAccessToken', body.accessToken);
+      pm.environment.set('adminRefreshToken', body.refreshToken);
+      pm.environment.set('adminToken', body.accessToken);
+      pm.test('New refresh token issued', () => pm.expect(body.refreshToken).to.not.eql(pm.collectionVariables.get('oldRefreshToken')));
+    language: text/javascript
+order: 1000

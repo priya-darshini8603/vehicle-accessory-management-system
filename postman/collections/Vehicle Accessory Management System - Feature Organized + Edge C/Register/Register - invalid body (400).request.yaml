@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "fullName": "",
+      "email": "not-an-email",
+      "password": "short"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 400', () => pm.response.to.have.status(400));
+      const body = pm.response.json();
+      pm.test('Field errors returned', () => pm.expect(body.fieldErrors).to.include.keys('fullName', 'email', 'password'));
+    language: text/javascript
+order: 2000

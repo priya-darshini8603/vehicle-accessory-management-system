@@ -1,0 +1,17 @@
+$kind: http-request
+description: Grants ADMIN to the registered customer. Run 'Demote user to CUSTOMER' afterwards to restore.
+url: "{{baseUrl}}/api/admin/users/{{customerId}}/role"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "role": "ADMIN"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{adminToken}}"
+order: 2000

@@ -1,0 +1,29 @@
+$kind: http-request
+description: 201 on first run; 409 on later runs (email already registered). Both are fine.
+url: "{{baseUrl}}/api/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "fullName": "Asha Rao",
+      "email": "{{customerEmail}}",
+      "password": "{{customerPassword}}",
+      "phoneNumber": "+91 98765 43210"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Created, or already registered', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));
+      if (pm.response.code === 201) {
+        pm.test('Self-registration is always CUSTOMER', () => pm.expect(pm.response.json().role).to.eql('CUSTOMER'));
+        pm.test('Password is never returned', () => pm.expect(pm.response.json()).to.not.have.property('password'));
+        pm.collectionVariables.set('customerId', pm.response.json().id);
+        pm.environment.set('customerId', pm.response.json().id);
+      }
+    language: text/javascript
+order: 1000

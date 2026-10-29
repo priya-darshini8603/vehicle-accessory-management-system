@@ -1,0 +1,24 @@
+$kind: http-request
+url: "{{baseUrl}}/api/admin/vehicles"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "vehicleNumber": "{{vehicleNumber}}",
+      "make": "Maruti Suzuki",
+      "model": "Swift",
+      "year": 2022
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 201', () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test('Number normalized to upper case', () => pm.expect(body.vehicleNumber).to.eql(pm.environment.get('vehicleNumber').trim().toUpperCase()));
+      pm.test('No accessories yet', () => pm.expect(body.accessories).to.be.an('array').that.is.empty);
+      if (pm.response.code < 300) pm.collectionVariables.set('vehicleId', pm.response.json().id);
+    language: text/javascript
+order: 1000

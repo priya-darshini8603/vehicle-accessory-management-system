@@ -1,0 +1,28 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "{{demoCustomerEmail}}",
+      "password": "{{demoCustomerPassword}}"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test('Customer role', () => pm.expect(body.user.role).to.eql('CUSTOMER'));
+      if (pm.response.code < 300) {
+        pm.collectionVariables.set('demoCustomerToken', body.accessToken);
+        pm.collectionVariables.set('demoRefreshToken', body.refreshToken);
+        pm.environment.set('demoCustomerToken', body.accessToken);
+        pm.environment.set('demoRefreshToken', body.refreshToken);
+      }
+    language: text/javascript
+order: 1000

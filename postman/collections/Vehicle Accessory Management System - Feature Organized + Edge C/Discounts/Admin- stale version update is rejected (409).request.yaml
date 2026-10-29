@@ -1,0 +1,30 @@
+$kind: http-request
+name: "Admin: stale version update is rejected (409)"
+description: Run after the successful update. Uses deliberately stale version 0; if your database returns another initial version, set staleDiscountVersion to the version from before the update.
+url: "{{baseUrl}}/api/admin/discounts/{{postmanCouponId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Stale Update Should Fail",
+      "code": "{{postmanCouponCode}}",
+      "type": "PERCENTAGE",
+      "value": 15,
+      "scope": "ALL",
+      "category": null,
+      "accessoryId": null,
+      "maxDiscountAmount": 500,
+      "minQuantity": 1,
+      "validFrom": null,
+      "validTo": null,
+      "active": true,
+      "version": {{staleDiscountVersion}}
+    }
+scripts:
+  - type: afterResponse
+    code: pm.test('Stale version returns 409', () => pm.response.to.have.status(409));
+    language: text/javascript
+order: 5000

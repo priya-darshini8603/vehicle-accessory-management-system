@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/api/orders/{{orderId}}"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Own order readable',()=>pm.response.to.have.status(200));
+    language: text/javascript
+order: 9000

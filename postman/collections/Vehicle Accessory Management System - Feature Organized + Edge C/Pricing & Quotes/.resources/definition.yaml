@@ -1,0 +1,3 @@
+$kind: collection
+description: "Quote API test cases: basic and multi-item pricing, duplicate-item merge, coupon application, vehicle-aware quote, validation/auth failures, plus accessory price history."
+order: 11000

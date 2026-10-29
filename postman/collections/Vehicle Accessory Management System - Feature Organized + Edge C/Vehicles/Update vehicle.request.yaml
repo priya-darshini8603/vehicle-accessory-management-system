@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}/api/admin/vehicles/{{vehicleId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "vehicleNumber": "{{vehicleNumber}}",
+      "make": "Maruti Suzuki",
+      "model": "Swift ZXi",
+      "year": 2023
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test('Model and year updated', () => { pm.expect(body.model).to.eql('Swift ZXi'); pm.expect(body.year).to.eql(2023); });
+    language: text/javascript
+order: 7000

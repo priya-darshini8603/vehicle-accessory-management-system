@@ -1,0 +1,32 @@
+name: VAMS Local
+values:
+  - key: baseUrl
+    value: 'http://localhost:8080'
+  - key: adminEmail
+    value: admin@vams.local
+  - key: adminPassword
+    value: Admin@12345678
+  - key: customerEmail
+    value: customer@example.com
+  - key: customerPassword
+    value: Customer@123456
+  - key: vehicleNumber
+    value: KA01AB1234
+  - key: demoCustomerEmail
+    value: demo.customer@vams.local
+  - key: demoCustomerPassword
+    value: Customer@123456
+  - key: adminToken
+    value: ''
+  - key: adminRefreshToken
+    value: ''
+  - key: customerToken
+    value: ''
+  - key: customerRefreshToken
+    value: ''
+  - key: demoCustomerToken
+    value: ''
+  - key: demoRefreshToken
+    value: ''
+  - key: customerId
+    value: ''

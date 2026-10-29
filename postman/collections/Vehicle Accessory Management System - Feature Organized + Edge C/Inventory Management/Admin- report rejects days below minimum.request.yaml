@@ -1,0 +1,15 @@
+$kind: http-request
+name: "Admin: report rejects days below minimum"
+url: "{{baseUrl}}/api/admin/inventory/report?days=0"
+method: GET
+queryParams:
+  days: "0"
+auth:
+  type: bearer
+  credentials:
+    token: "{{adminToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('days below minimum is rejected', () => pm.expect(pm.response.code).to.be.oneOf([400,422]));
+    language: text/javascript
+order: 13000

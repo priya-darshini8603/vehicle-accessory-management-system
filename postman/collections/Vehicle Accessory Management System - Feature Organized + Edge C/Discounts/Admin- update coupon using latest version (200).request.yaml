@@ -1,0 +1,34 @@
+$kind: http-request
+name: "Admin: update coupon using latest version (200)"
+url: "{{baseUrl}}/api/admin/discounts/{{postmanCouponId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Postman Test Coupon Updated",
+      "code": "{{postmanCouponCode}}",
+      "type": "PERCENTAGE",
+      "value": 15,
+      "scope": "ALL",
+      "category": null,
+      "accessoryId": null,
+      "maxDiscountAmount": 500,
+      "minQuantity": 1,
+      "validFrom": null,
+      "validTo": null,
+      "active": true,
+      "version": {{postmanDiscountVersion}}
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.collectionVariables.set('staleDiscountVersion', String(pm.collectionVariables.get('postmanDiscountVersion')));
+      pm.test('Status is 200', () => pm.response.to.have.status(200));
+      const d = pm.response.json();
+      pm.test('Update changed discount and increments version', () => { pm.expect(d.name).to.eql('Postman Test Coupon Updated'); pm.expect(d.value).to.eql(15); pm.expect(Number(d.version)).to.be.greaterThan(Number(pm.collectionVariables.get('postmanDiscountVersion'))); });
+      pm.collectionVariables.set('postmanDiscountVersion', String(d.version));
+    language: text/javascript
+order: 4000

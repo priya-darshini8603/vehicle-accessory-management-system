@@ -1,0 +1,32 @@
+$kind: http-request
+name: "Admin: create automatic promotion"
+url: "{{baseUrl}}/api/admin/discounts"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Postman Test Automatic Promotion",
+      "code": null,
+      "type": "FLAT",
+      "value": 100,
+      "scope": "CATEGORY",
+      "category": "interior",
+      "accessoryId": null,
+      "maxDiscountAmount": null,
+      "minQuantity": 1,
+      "validFrom": null,
+      "validTo": null,
+      "active": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 201 Created', () => pm.response.to.have.status(201));
+      const d = pm.response.json();
+      pm.test('Promotion has no coupon code and targets category', () => { pm.expect(d.id).to.be.a('number'); pm.expect(d.code).to.be.null; pm.expect(d.scope).to.eql('CATEGORY'); pm.expect(d.category).to.eql('interior'); });
+      pm.collectionVariables.set('postmanPromotionId', d.id);
+    language: text/javascript
+order: 6000

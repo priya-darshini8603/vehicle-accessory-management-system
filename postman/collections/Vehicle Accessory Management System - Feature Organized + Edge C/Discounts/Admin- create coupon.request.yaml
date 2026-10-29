@@ -1,0 +1,37 @@
+$kind: http-request
+name: "Admin: create coupon"
+url: "{{baseUrl}}/api/admin/discounts"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Postman Test Coupon",
+      "code": "{{postmanCouponCode}}",
+      "type": "PERCENTAGE",
+      "value": 10,
+      "scope": "ALL",
+      "category": null,
+      "accessoryId": null,
+      "maxDiscountAmount": 500,
+      "minQuantity": 1,
+      "validFrom": null,
+      "validTo": null,
+      "active": true
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.collectionVariables.set('postmanCouponCode', 'PMTEST_' + Date.now().toString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 201 Created', () => pm.response.to.have.status(201));
+      const d = pm.response.json();
+      pm.test('Coupon has an id and code', () => { pm.expect(d.id).to.be.a('number'); pm.expect(d.code).to.eql(pm.collectionVariables.get('postmanCouponCode')); });
+      pm.collectionVariables.set('postmanCouponId', d.id);
+      pm.collectionVariables.set('postmanCouponVersion', d.version);
+      if (pm.response.code === 201) { pm.collectionVariables.set('postmanDiscountVersion', String(d.version)); pm.collectionVariables.set('staleDiscountVersion', String(d.version)); }
+    language: text/javascript
+order: 2000

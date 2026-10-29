@@ -1,0 +1,21 @@
+$kind: http-request
+name: "Quote: unknown accessory rejected (404)"
+url: "{{baseUrl}}/api/pricing/quote"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [{ "accessoryId": 999999, "quantity": 1 }]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{customerToken}}"
+scripts:
+  - type: afterResponse
+    code: pm.test('Unknown accessory returns 404', () => pm.response.to.have.status(404));
+    language: text/javascript
+order: 9000

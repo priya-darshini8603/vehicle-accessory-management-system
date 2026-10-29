@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}/api/admin/accessories"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "",
+      "category": "Interior",
+      "price": -10
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 400', () => pm.response.to.have.status(400));
+      const body = pm.response.json();
+      pm.test('name and price flagged', () => pm.expect(body.fieldErrors).to.include.keys('name', 'price'));
+    language: text/javascript
+order: 3000
